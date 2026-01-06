@@ -32,6 +32,7 @@ const { checkBinaries } = require("./preflight");
 const { gitClone, removeGitFolder } = require("./remote");
 const { generateCI, generateDocker } = require("./cicd");
 const { getDescription } = require("./descriptions");
+const { detectLanguage, detectPackageManager } = require("./detect");
 
 const RUST_KEYWORDS = new Set(
   [
@@ -318,6 +319,82 @@ async function main(options = {}) {
   if (cmd === "add") {
     await runAdd({ prompt, argv: rest });
     return;
+  }
+
+  // Smart Context Detection
+  if (
+    cmd === "init" &&
+    rest.length === 0 &&
+    !args.language &&
+    !args.framework &&
+    !args.template &&
+    !args.name
+  ) {
+    const detected = detectLanguage(process.cwd());
+    if (detected && detected !== "Unknown") {
+      console.clear();
+      console.log(
+        gradient.pastel.multiline(
+          figlet.textSync("ProjectCLI", { font: "Standard" })
+        )
+      );
+      console.log(chalk.bold.magenta("  The Swiss Army Knife for Developers"));
+      console.log("");
+      console.log(
+        chalk.green(`✓ Detected active ${chalk.bold(detected)} project.`)
+      );
+
+      const { action } = await prompt([
+        {
+          type: "list",
+          name: "action",
+          message: "What would you like to do?",
+          choices: [
+            { name: "Add Library / Dependency", value: "add" },
+            { name: "Add GitHub Actions CI", value: "ci" },
+            { name: "Add Dockerfile", value: "docker" },
+            new inquirer.Separator(),
+            { name: "Start New Project Here", value: "new" },
+            { name: "Exit", value: "exit" },
+          ],
+        },
+      ]);
+
+      if (action === "exit") process.exit(0);
+
+      if (action === "add") {
+        // reuse the add logic, passing empty args so it detects locally
+        await runAdd({ prompt, argv: [] });
+        return;
+      }
+
+      if (action === "ci" || action === "docker") {
+        const pm = detectPackageManager(process.cwd());
+        let langArg = detected;
+        if (detected === "JavaScript/TypeScript") langArg = "JavaScript";
+        if (detected === "Java/Kotlin") langArg = "Java";
+
+        const steps =
+          action === "ci"
+            ? generateCI(process.cwd(), langArg, pm)
+            : generateDocker(process.cwd(), langArg);
+
+        if (steps.length > 0) {
+          console.log("\nApplying changes...");
+          await runSteps(steps, { projectRoot: process.cwd() });
+          console.log(chalk.green("Done!"));
+        } else {
+          console.log(
+            chalk.yellow(
+              "No standard template available for this language yet."
+            )
+          );
+        }
+        return;
+      }
+
+      // If 'new', fall through to normal wizard
+    }
   }
 
   // Clear console for a fresh start
