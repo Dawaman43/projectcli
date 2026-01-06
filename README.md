@@ -9,13 +9,13 @@ Run it as a single command, pick language → framework, and it scaffolds the pr
 After you publish this package to npm:
 
 ```bash
-npx projectcli@latest
+npx @dawitworku/projectcli@latest
 ```
 
 You can also run non-interactively:
 
 ```bash
-npx projectcli@latest --language "TypeScript" --framework "NestJS" --name my-api --pm npm
+npx @dawitworku/projectcli@latest --language "TypeScript" --framework "NestJS" --name my-api --pm npm
 ```
 
 ## Run (dev)

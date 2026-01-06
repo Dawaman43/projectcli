@@ -1,5 +1,5 @@
 {
-  "name": "projectcli",
+  "name": "@dawitworku/projectcli",
   "version": "0.1.0",
   "description": "Interactive project generator (language -> framework -> create).",
   "license": "MIT",
