@@ -1,5 +1,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const chalk = require("chalk");
+const Fuse = require("fuse.js");
+const inquirerImport = require("inquirer");
+const inquirer = inquirerImport.default ?? inquirerImport;
 
 const { detectLanguage, detectPackageManager } = require("./detect");
 const { getCatalog } = require("./libraries");
@@ -21,18 +25,22 @@ function parseAddArgs(argv) {
 }
 
 function printStepsPreview(steps) {
-  console.log("\nPlanned actions:");
+  console.log(chalk.bold.cyan("\nPlanned actions:"));
   for (const step of steps) {
     const type = step.type || "command";
     if (type === "command") {
       const where = step.cwdFromProjectRoot ? "(in project)" : "(here)";
-      console.log(`- ${step.program} ${step.args.join(" ")} ${where}`);
+      console.log(
+        chalk.gray("- ") +
+          chalk.green(`${step.program} ${step.args.join(" ")}`) +
+          chalk.dim(` ${where}`)
+      );
     } else if (type === "mkdir") {
-      console.log(`- mkdir -p ${step.path}`);
+      console.log(chalk.gray("- ") + chalk.yellow(`mkdir -p ${step.path}`));
     } else if (type === "writeFile") {
-      console.log(`- write ${step.path}`);
+      console.log(chalk.gray("- ") + chalk.yellow(`write ${step.path}`));
     } else {
-      console.log(`- ${type}`);
+      console.log(chalk.gray(`- ${type}`));
     }
   }
   console.log("");
@@ -42,7 +50,7 @@ async function runAdd({ prompt, argv }) {
   const flags = parseAddArgs(argv);
   const cwd = process.cwd();
   const language = detectLanguage(cwd);
-  const pm = detectPackageManager(cwd);
+  const pm = detectPackageManager(cwd); // Now returns pip, poetry, cargo, go, etc.
 
   if (language === "Unknown") {
     throw new Error(
@@ -50,10 +58,8 @@ async function runAdd({ prompt, argv }) {
     );
   }
 
-  console.log(`\nDetected project: ${language}`);
-  if (language === "JavaScript/TypeScript") {
-    console.log(`Detected package manager: ${pm}`);
-  }
+  console.log(chalk.bold(`\nDetected project: ${chalk.blue(language)}`));
+  console.log(chalk.dim(`Detected package manager: ${pm}`));
 
   const catalog = getCatalog(language);
   const categories = Object.keys(catalog);
@@ -61,201 +67,180 @@ async function runAdd({ prompt, argv }) {
     throw new Error(`No library catalog configured for: ${language}`);
   }
 
+  // Flatten catalog for fuzzy search
+  const allItems = [];
+  for (const cat of categories) {
+    for (const item of catalog[cat]) {
+      allItems.push({
+        ...item,
+        category: cat,
+        displayName: `${cat}: ${item.label}`,
+      });
+    }
+  }
+
+  const fuse = new Fuse(allItems, {
+    keys: ["label", "category"],
+    threshold: 0.4,
+  });
+
   const BACK = "__back__";
   const EXIT = "__exit__";
 
-  let selectedCategory = null;
-  let selectedLabels = null;
+  let selectedItems = [];
 
   while (true) {
-    if (!selectedCategory) {
-      const categoryChoices = [
-        ...categories.map((c) => ({
-          name: `${c} (${catalog[c].length})`,
-          value: c,
-        })),
-        new (require("inquirer").Separator)(),
-        { name: "Exit", value: EXIT },
-      ];
+    // If we have selected items, show them
+    if (selectedItems.length > 0) {
+      console.log(chalk.green(`\nSelected:`));
+      selectedItems.forEach((i) => console.log(` - ${i.displayName}`));
+    }
 
+    const choices = [
+      { name: "Done (Install selected)", value: "DONE" },
+      { name: "Search libraries (Fuzzy)", value: "SEARCH" },
+      { name: "Browse by Category", value: "BROWSE" },
+      new inquirer.Separator(),
+      { name: "Exit", value: EXIT },
+    ];
+
+    const { action } = await prompt([
+      {
+        type: "list",
+        name: "action",
+        message: "What do you want to do?",
+        choices,
+        pageSize: 10,
+      },
+    ]);
+
+    if (action === EXIT) return;
+
+    if (action === "SEARCH") {
+      // Fuzzy search
+      const { item } = await prompt([
+        {
+          type: "autocomplete",
+          name: "item",
+          message: "Search library:",
+          source: (answersSoFar, input) => {
+            if (!input)
+              return Promise.resolve(
+                allItems.map((i) => ({ name: i.displayName, value: i }))
+              );
+            return Promise.resolve(
+              fuse
+                .search(input)
+                .map((r) => ({ name: r.item.displayName, value: r.item }))
+            );
+          },
+        },
+      ]);
+      if (item) {
+        if (!selectedItems.find((i) => i.label === item.label)) {
+          selectedItems.push(item);
+        }
+      }
+      continue;
+    }
+
+    if (action === "BROWSE") {
       const { category } = await prompt([
         {
           type: "list",
           name: "category",
           message: "Category:",
-          choices: categoryChoices,
-          pageSize: 14,
+          choices: [...categories, { name: "Back", value: BACK }],
+        },
+      ]);
+      if (category === BACK) continue;
+
+      const items = catalog[category];
+      const { picked } = await prompt([
+        {
+          type: "checkbox",
+          name: "picked",
+          message: "Select libraries:",
+          choices: items.map((i) => ({
+            name: i.label,
+            value: i,
+            checked: !!selectedItems.find((s) => s.label === i.label),
+          })),
         },
       ]);
 
-      if (category === EXIT) return;
-      selectedCategory = category;
+      for (const p of picked) {
+        if (!selectedItems.find((i) => i.label === p.label)) {
+          selectedItems.push(p);
+        }
+      }
       continue;
     }
 
-    if (!selectedLabels) {
-      const items = catalog[selectedCategory] || [];
-      const { picks } = await prompt([
-        {
-          type: "checkbox",
-          name: "picks",
-          message: "Select libraries (space to toggle):",
-          choices: items.map((i) => ({ name: i.label, value: i.label })),
-          validate: (v) =>
-            v && v.length ? true : "Pick at least one library.",
-          pageSize: 14,
-        },
-      ]);
-
-      selectedLabels = picks;
-
-      const { next } = await prompt([
-        {
-          type: "list",
-          name: "next",
-          message: "Next:",
-          choices: [
-            { name: "Continue", value: "continue" },
-            { name: "← Back", value: BACK },
-            { name: "Cancel", value: EXIT },
-          ],
-          pageSize: 8,
-        },
-      ]);
-
-      if (next === EXIT) return;
-      if (next === BACK) {
-        selectedLabels = null;
-        selectedCategory = null;
-        continue;
-      }
-
-      // continue
-    }
-
-    const items = catalog[selectedCategory] || [];
-    const chosen = items.filter((i) => selectedLabels.includes(i.label));
-
-    const packages = uniq(chosen.flatMap((i) => i.packages || []));
-    const packagesDev = uniq(chosen.flatMap((i) => i.packagesDev || []));
-    const posts = uniq(chosen.map((i) => i.post).filter(Boolean));
-
-    const steps = [];
-
-    if (language === "JavaScript/TypeScript") {
-      if (!fs.existsSync(path.join(cwd, "package.json"))) {
-        throw new Error(
-          "No package.json found; run this inside a JS/TS project."
-        );
-      }
-
-      if (packages.length) {
-        const cmd = pmAddCommand(pm, packages, { dev: false });
-        steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
-      }
-      if (packagesDev.length) {
-        const cmd = pmAddCommand(pm, packagesDev, { dev: true });
-        steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
-      }
-
-      // Optional post-steps
-      for (const post of posts) {
-        if (post === "tailwind-init") {
-          const cmd = pmExecCommand(pm, "tailwindcss", ["init", "-p"]);
-          steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
-        }
-        if (post === "playwright-install") {
-          const cmd = pmExecCommand(pm, "playwright", ["install"]);
-          steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
-        }
-        if (post === "shadcn-init") {
-          // shadcn/ui uses a CLI; keep it interactive.
-          const cmd = pmExecCommand(pm, "shadcn@latest", ["init"]);
-          steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
-        }
-      }
-
-      if (flags.dryRun) {
-        printStepsPreview(steps);
-        console.log("Dry run: nothing executed.");
+    if (action === "DONE") {
+      if (selectedItems.length === 0) {
+        console.log(chalk.yellow("No libraries selected. Exiting."));
         return;
       }
-
-      if (!flags.yes) {
-        const { ok } = await prompt([
-          {
-            type: "confirm",
-            name: "ok",
-            message: "Install selected libraries now?",
-            default: true,
-          },
-        ]);
-        if (!ok) {
-          selectedLabels = null;
-          continue;
-        }
-      }
-
-      await runSteps(steps, { projectRoot: cwd });
-      console.log("\nDone. Libraries added.");
-      return;
+      break;
     }
-
-    if (language === "Python") {
-      const all = uniq([...packages, ...packagesDev]);
-      const { mode } = await prompt([
-        {
-          type: "list",
-          name: "mode",
-          message: "How to add Python packages?",
-          choices: [
-            {
-              name: "Append to requirements.txt (no install)",
-              value: "requirements",
-            },
-            {
-              name: "pip install now (and append requirements.txt)",
-              value: "pip",
-            },
-          ],
-          default: "requirements",
-        },
-      ]);
-
-      const reqPath = path.join(cwd, "requirements.txt");
-      const toAppend = all.map((p) => `${p}\n`).join("");
-
-      if (flags.dryRun) {
-        console.log("\nPlanned actions:");
-        if (mode === "pip") {
-          console.log(`- python -m pip install ${all.join(" ")} (here)`);
-        }
-        console.log(`- append requirements.txt: ${all.join(", ")}`);
-        console.log("\nDry run: nothing executed.");
-        return;
-      }
-
-      if (mode === "pip") {
-        await runSteps(
-          [
-            {
-              type: "command",
-              program: "python",
-              args: ["-m", "pip", "install", ...all],
-              cwdFromProjectRoot: true,
-            },
-          ],
-          { projectRoot: cwd }
-        );
-      }
-
-      fs.appendFileSync(reqPath, toAppend, "utf8");
-      console.log("\nDone. Updated requirements.txt");
-      return;
-    }
-
-    throw new Error(`Add mode not implemented yet for: ${language}`);
   }
+
+  // Install phase
+  const packages = uniq(selectedItems.flatMap((i) => i.packages || []));
+  const packagesDev = uniq(selectedItems.flatMap((i) => i.packagesDev || []));
+  const posts = uniq(selectedItems.map((i) => i.post).filter(Boolean));
+
+  const steps = [];
+
+  // Generic handling based on 'pm'
+  if (packages.length) {
+    const cmd = pmAddCommand(pm, packages, { dev: false });
+    steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+  }
+
+  if (packagesDev.length) {
+    const cmd = pmAddCommand(pm, packagesDev, { dev: true });
+    steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+  }
+
+  // Post install steps
+  for (const post of posts) {
+    if (post === "tailwind-init") {
+      const cmd = pmExecCommand(pm, "tailwindcss", ["init", "-p"]);
+      steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+    }
+    if (post === "playwright-install") {
+      const cmd = pmExecCommand(pm, "playwright", ["install"]);
+      steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+    }
+    if (post === "shadcn-init") {
+      const cmd = pmExecCommand(pm, "shadcn@latest", ["init"]);
+      steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+    }
+  }
+
+  if (flags.dryRun) {
+    printStepsPreview(steps);
+    console.log("Dry run: nothing executed.");
+    return;
+  }
+
+  if (!flags.yes) {
+    printStepsPreview(steps);
+    const { ok } = await prompt([
+      {
+        type: "confirm",
+        name: "ok",
+        message: "Proceed with installation?",
+        default: true,
+      },
+    ]);
+    if (!ok) return;
+  }
+
+  await runSteps(steps, { projectRoot: cwd });
+  console.log(chalk.green("\nDone. Libraries added."));
 }
 
 module.exports = {

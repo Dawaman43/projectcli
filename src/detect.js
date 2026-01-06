@@ -6,11 +6,29 @@ function exists(cwd, rel) {
 }
 
 function detectPackageManager(cwd) {
+  // JS/TS
   if (exists(cwd, "pnpm-lock.yaml")) return "pnpm";
   if (exists(cwd, "yarn.lock")) return "yarn";
   if (exists(cwd, "bun.lockb") || exists(cwd, "bun.lock")) return "bun";
   if (exists(cwd, "package-lock.json")) return "npm";
-  // fallback
+
+  // Python
+  if (exists(cwd, "poetry.lock")) return "poetry";
+  if (exists(cwd, "requirements.txt")) return "pip";
+  if (exists(cwd, "pyproject.toml")) return "pip"; // Default to pip/standard if no specific lock file
+
+  // Rust
+  if (exists(cwd, "Cargo.toml")) return "cargo";
+
+  // Go
+  if (exists(cwd, "go.mod")) return "go";
+
+  // PHP
+  if (exists(cwd, "composer.json")) return "composer";
+
+  // fallback for JS
+  if (exists(cwd, "package.json")) return "npm";
+
   return "npm";
 }
 

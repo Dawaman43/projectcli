@@ -2,9 +2,6 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 const chalk = require("chalk");
-const boxen = require("boxen");
-const figlet = require("figlet");
-const gradient = require("gradient-string");
 const inquirerImport = require("inquirer");
 const inquirer = inquirerImport.default ?? inquirerImport;
 const prompt =
@@ -275,22 +272,13 @@ async function main(options = {}) {
     return;
   }
 
-  // Clear console for a fresh start
-  console.clear();
-
-  const title = figlet.textSync(" PROJECT CLI", { font: "Slant" });
-  console.log(gradient.pastel.multiline(title));
-
-  const subtitle = "   The Ultimate Interactive Project Generator   ";
-  console.log(gradient.vice(subtitle));
-  console.log(chalk.dim("   v" + readPackageVersion()));
-  console.log("\n");
-
+  console.log(chalk.bold.magenta("\nprojectcli"));
+  console.log(chalk.white("Create a project in seconds."));
+  console.log(chalk.dim(`Host: ${os.platform()} ${os.arch()}`));
   console.log(
-    chalk.cyan.bold(" ? ") +
-      chalk.bold("Select a Language") +
-      chalk.dim(" (Type to search)")
+    chalk.dim("Tip: use ↑/↓, Enter, and type-to-search when available.")
   );
+  console.log(chalk.dim("Tip: Ctrl+C anytime to quit.\n"));
 
   const languages = getLanguages();
   if (languages.length === 0) {
@@ -338,32 +326,15 @@ async function main(options = {}) {
         return { name: `${lang} (${count})`, value: lang, short: lang };
       });
 
-      const languageQuestion = hasAutocomplete
-        ? {
-            type: "autocomplete",
-            name: "language",
-            message: "Language (type to search):",
-            pageSize: 12,
-            source: async (_answersSoFar, input) => {
-              const q = String(input || "")
-                .toLowerCase()
-                .trim();
-              if (!q) return languageChoices;
-              // Fuzzy/Simple filter
-              return languageChoices.filter((c) =>
-                String(c.name).toLowerCase().includes(q)
-              );
-            },
-          }
-        : {
-            type: "list",
-            name: "language",
-            message: "Language:",
-            choices: languageChoices,
-            pageSize: 12,
-          };
-
-      const { language } = await prompt([languageQuestion]);
+      const { language } = await prompt([
+        {
+          type: "list",
+          name: "language",
+          message: "Language:",
+          choices: languageChoices,
+          pageSize: 12,
+        },
+      ]);
 
       state.language = language;
       state.framework = undefined;
@@ -384,32 +355,32 @@ async function main(options = {}) {
         return { name: `${fw}${note}`, value: fw, short: fw };
       });
 
-      const frameworkQuestion = hasAutocomplete
-        ? {
-            type: "autocomplete",
-            name: "framework",
-            message: "Framework (type to search):",
-            pageSize: 12,
-            source: async (_answersSoFar, input) => {
-              const q = String(input || "")
-                .toLowerCase()
-                .trim();
-              const backOption = { name: "← Back", value: BACK };
-              if (!q) return [backOption, ...frameworkChoices];
-
-              const filtered = frameworkChoices.filter((c) =>
-                String(c.name).toLowerCase().includes(q)
-              );
-              return [backOption, ...filtered];
-            },
-          }
-        : {
-            type: "list",
-            name: "framework",
-            message: "Framework:",
-            choices: withBack(frameworkChoices),
-            pageSize: 12,
-          };
+      const frameworkQuestion =
+        hasAutocomplete && frameworkChoices.length > 12
+          ? {
+              type: "autocomplete",
+              name: "framework",
+              message: "Framework (type to search):",
+              pageSize: 12,
+              source: async (_answersSoFar, input) => {
+                const q = String(input || "")
+                  .toLowerCase()
+                  .trim();
+                if (!q) return withBack(frameworkChoices);
+                return withBack(
+                  frameworkChoices.filter((c) =>
+                    String(c.name).toLowerCase().includes(q)
+                  )
+                );
+              },
+            }
+          : {
+              type: "list",
+              name: "framework",
+              message: "Framework:",
+              choices: withBack(frameworkChoices),
+              pageSize: 12,
+            };
 
       const answer = await prompt([frameworkQuestion]);
       if (answer.framework === BACK) {
