@@ -50,6 +50,33 @@ function pmAddCommand(pm, packages, { dev = false } = {}) {
     return { program: "go", args: ["get", ...pkgs] };
   }
 
+  // PHP
+  if (pm === "composer") {
+    return {
+      program: "composer",
+      args: ["require", ...(dev ? ["--dev"] : []), ...pkgs],
+    };
+  }
+
+  // Ruby
+  if (pm === "bundle") {
+    // bundle add pkg
+    // dev dependencies often go to "development" or "test" group, but let's just do default add for now
+    // or standard "bundle add generic"
+    return {
+      program: "bundle",
+      args: ["add", ...pkgs, ...(dev ? ["--group", "development,test"] : [])],
+    };
+  }
+
+  // Dart
+  if (pm === "dart") {
+    return {
+      program: "dart",
+      args: ["pub", "add", ...(dev ? ["--dev"] : []), ...pkgs],
+    };
+  }
+
   return { program: "npm", args: ["install", ...(dev ? ["-D"] : []), ...pkgs] };
 }
 

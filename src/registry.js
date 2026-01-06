@@ -429,17 +429,17 @@ const REGISTRY = {
           type: "writeFile",
           path: "app.py",
           content:
-            "from flask import Flask\n\napp = Flask(__name__)\n\n@app.get('/')\ndef hello():\n    return {'status': 'ok'}\n\nif __name__ == '__main__':\n    app.run(debug=True)\n",
+            "from flask import Flask\\n\\napp = Flask(__name__)\\n\\n@app.get('/')\\ndef hello():\\n    return {'status': 'ok'}\\n\\nif __name__ == '__main__':\\n    app.run(debug=True)\\n",
         },
         {
           type: "writeFile",
           path: "requirements.txt",
-          content: "flask\n",
+          content: "flask\\n",
         },
         {
           type: "writeFile",
           path: ".gitignore",
-          content: ".venv\n__pycache__\n*.pyc\n.DS_Store\n",
+          content: ".venv\\n__pycache__\\n*.pyc\\n.DS_Store\\n",
         },
       ],
       notes: "Writes app.py + requirements.txt (no pip install).",
@@ -453,23 +453,23 @@ const REGISTRY = {
           type: "writeFile",
           path: "main.py",
           content:
-            "from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get('/')\ndef root():\n    return {'status': 'ok'}\n",
+            "from fastapi import FastAPI\\n\\napp = FastAPI()\\n\\n@app.get('/')\\ndef root():\\n    return {'status': 'ok'}\\n",
         },
         {
           type: "writeFile",
           path: "requirements.txt",
-          content: "fastapi\nuvicorn\n",
+          content: "fastapi\\nuvicorn\\n",
         },
         {
           type: "writeFile",
           path: "README.md",
           content:
-            "# FastAPI app\n\nRun:\n\n- python -m venv .venv\n- . .venv/bin/activate\n- pip install -r requirements.txt\n- uvicorn main:app --reload\n",
+            "# FastAPI app\\n\\nRun:\\n\\n- python -m venv .venv\\n- . .venv/bin/activate\\n- pip install -r requirements.txt\\n- uvicorn main:app --reload\\n",
         },
         {
           type: "writeFile",
           path: ".gitignore",
-          content: ".venv\n__pycache__\n*.pyc\n.DS_Store\n",
+          content: ".venv\\n__pycache__\\n*.pyc\\n.DS_Store\\n",
         },
       ],
       notes: "Writes files only (no pip install).",
@@ -480,18 +480,17 @@ const REGISTRY = {
       commands: (ctx) => {
         const projectName = getProjectName(ctx);
         return [
-          // Pyramid cookiecutter is common, but basic scaffold:
           { type: "mkdir", path: "." },
           {
             type: "writeFile",
             path: "requirements.txt",
-            content: "pyramid\nwaitress\n",
+            content: "pyramid\\nwaitress\\n",
           },
           {
             type: "writeFile",
             path: "app.py",
             content:
-              "from wsgiref.simple_server import make_server\nfrom pyramid.config import Configurator\nfrom pyramid.response import Response\n\ndef hello_world(request):\n    return Response('Hello World!')\n\nif __name__ == '__main__':\n    with Configurator() as config:\n        config.add_route('hello', '/')\n        config.add_view(hello_world, route_name='hello')\n        app = config.make_wsgi_app()\n    server = make_server('0.0.0.0', 6543, app)\n    server.serve_forever()\n",
+              "from wsgiref.simple_server import make_server\\nfrom pyramid.config import Configurator\\nfrom pyramid.response import Response\\n\\ndef hello_world(request):\\n    return Response('Hello World!')\\n\\nif __name__ == '__main__':\\n    with Configurator() as config:\\n        config.add_route('hello', '/')\\n        config.add_view(hello_world, route_name='hello')\\n        app = config.make_wsgi_app()\\n    server = make_server('0.0.0.0', 6543, app)\\n    server.serve_forever()\\n",
           },
         ];
       },
@@ -534,8 +533,6 @@ const REGISTRY = {
       commands: (ctx) => {
         const projectName = getProjectName(ctx);
         const pm = getPackageManager(ctx); // usually npm for tauri frontend
-        // Using create-tauri-app via pmExec
-        // cargo create-tauri-app is also an option but node way is common if JS frontend
         return [pmExec(pm, "create-tauri-app@latest", [projectName])];
       },
       notes: "Cross-platform desktop app",
@@ -551,8 +548,6 @@ const REGISTRY = {
             args: ["init", "--name", projectName],
             cwdFromProjectRoot: true,
           },
-          // In reality, one would use cargo-leptos or a template.
-          // Just a stub for now.
         ];
       },
       notes: "Init basic Rust project (Leptos needs template usually)",
@@ -591,7 +586,7 @@ const REGISTRY = {
             type: "writeFile",
             path: "main.go",
             content:
-              'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("hello")\n}\n',
+              'package main\\n\\nimport "fmt"\\n\\nfunc main() {\\n    fmt.Println("hello")\\n}\\n',
           },
         ];
       },
@@ -783,8 +778,6 @@ int main() {
       id: "java.springboot.maven",
       label: "Spring Boot (Maven)",
       commands: (ctx) => {
-        // Simple archetype or just hints. Spring Init is complex.
-        // Let's use maven quickstart for now as basic.
         const projectName = getProjectName(ctx);
         return [
           {
@@ -819,11 +812,8 @@ int main() {
               "--project-name",
               projectName,
             ],
-            cwd: projectName, // This property needs to be supported in runSteps, handled via chdir logic usually?
-            // current runSteps implementation supports cwdFromProjectRoot but not arbitrary cwd change easily maybe?
-            // runSteps implementation check:
-            // It uses `cwdFromProjectRoot` or defaults to current process.cwd().
-            // Better to just run gradle init inside the folder.
+            cwd: projectName,
+            cwdFromProjectRoot: true,
           },
         ];
       },

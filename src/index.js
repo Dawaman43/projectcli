@@ -28,6 +28,8 @@ try {
 const { getLanguages, getFrameworks, getGenerator } = require("./registry");
 const { runSteps } = require("./run");
 const { runAdd } = require("./add");
+const { generateCI, generateDocker } = require("./cicd");
+const { getDescription } = require("./descriptions");
 
 const RUST_KEYWORDS = new Set(
   [
@@ -129,6 +131,9 @@ function parseArgs(argv) {
     framework: undefined,
     name: undefined,
     pm: undefined,
+    ci: false,
+    docker: false,
+    learning: false,
   };
 
   const nextValue = (i) => {
@@ -143,6 +148,9 @@ function parseArgs(argv) {
     else if (a === "--list") out.list = true;
     else if (a === "--yes" || a === "-y") out.yes = true;
     else if (a === "--dry-run") out.dryRun = true;
+    else if (a === "--ci") out.ci = true;
+    else if (a === "--docker") out.docker = true;
+    else if (a === "--learning") out.learning = true;
     else if (a.startsWith("--language="))
       out.language = a.slice("--language=".length);
     else if (a === "--language") {
@@ -202,6 +210,9 @@ function printHelp() {
   console.log(
     "  --pm             Package manager for JS/TS (npm|pnpm|yarn|bun)"
   );
+  console.log("  --ci             Auto-add GitHub Actions CI");
+  console.log("  --docker         Auto-add Dockerfile");
+  console.log("  --learning       Enable learning mode (shows descriptions)");
 }
 
 const BACK = "__back__";
@@ -247,6 +258,18 @@ function printList() {
   }
 }
 
+function showBanner() {
+  console.log("");
+  console.log(
+    gradient.pastel.multiline(
+      figlet.textSync("ProjectCLI", { font: "Standard" })
+    )
+  );
+  console.log(chalk.bold.magenta("  The Swiss Army Knife for Developers"));
+  console.log(chalk.dim("  v" + readPackageVersion()));
+  console.log("");
+}
+
 async function main(options = {}) {
   if (!prompt) {
     throw new Error(
@@ -257,7 +280,19 @@ async function main(options = {}) {
   const argv = options.argv || [];
   const { cmd, rest } = splitCommand(argv);
   const args = parseArgs(rest);
+
+  if (
+    !args.list &&
+    !args.version &&
+    !args.help &&
+    rest.length === 0 &&
+    cmd === "init"
+  ) {
+    showBanner();
+  }
+
   if (args.help) {
+    showBanner();
     printHelp();
     return;
   }
@@ -526,6 +561,20 @@ async function main(options = {}) {
         `Framework: ${state.framework}`,
       ];
       if (state.pm) summaryLines.push(`Package manager: ${state.pm}`);
+
+      if (args.learning) {
+        const desc = getDescription(generator.id);
+        console.log(
+          chalk.cyan(
+            boxen(desc, {
+              padding: 1,
+              title: `About ${state.framework}`,
+              borderStyle: "round",
+            })
+          )
+        );
+      }
+
       console.log("\n" + summaryLines.join("\n") + "\n");
 
       if (targetExists && args.dryRun) {
@@ -621,6 +670,83 @@ async function main(options = {}) {
         step = looksLikeNameIssue ? "name" : "confirm";
         if (step === "name") state.name = undefined;
         continue;
+      }
+
+      // Git init
+      if (!args.dryRun) {
+        let doGit = args.yes;
+        if (!doGit) {
+          const { git } = await prompt([
+            {
+              type: "confirm",
+              name: "git",
+              message: "Initialize a new git repository?",
+              default: true,
+            },
+          ]);
+          doGit = git;
+        }
+
+        if (doGit) {
+          try {
+            await runSteps(
+              [
+                { program: "git", args: ["init"], cwdFromProjectRoot: true },
+                {
+                  program: "git",
+                  args: ["add", "."],
+                  cwdFromProjectRoot: true,
+                },
+                {
+                  program: "git",
+                  args: ["commit", "-m", "Initial commit"],
+                  cwdFromProjectRoot: true,
+                },
+              ],
+              { projectRoot }
+            );
+            console.log("Initialized git repository.");
+          } catch (e) {
+            console.warn("Git init failed (is git installed?):", e.message);
+          }
+        }
+      }
+
+      // CI/CD & Docker
+      if (!args.dryRun) {
+        let wantCi = args.ci;
+        let wantDocker = args.docker;
+
+        if (!args.yes) {
+          const { extras } = await prompt([
+            {
+              type: "checkbox",
+              name: "extras",
+              message: "Extras:",
+              choices: [
+                { name: "GitHub Actions CI", value: "ci", checked: wantCi },
+                { name: "Dockerfile", value: "docker", checked: wantDocker },
+              ],
+            },
+          ]);
+          if (extras) {
+            wantCi = extras.includes("ci");
+            wantDocker = extras.includes("docker");
+          }
+        }
+
+        const extraSteps = [];
+        if (wantCi) {
+          extraSteps.push(...generateCI(projectRoot, state.language, state.pm));
+        }
+        if (wantDocker) {
+          extraSteps.push(...generateDocker(projectRoot, state.language));
+        }
+
+        if (extraSteps.length > 0) {
+          console.log("Adding extras...");
+          await runSteps(extraSteps, { projectRoot });
+        }
       }
 
       console.log(`\nDone. Created project in: ${projectRoot}`);

@@ -137,11 +137,60 @@ const GO = {
   ],
 };
 
+const PHP = {
+  "Web Frameworks": [
+    { label: "Laravel", packages: ["laravel/framework"] },
+    { label: "Symfony", packages: ["symfony/symfony"] },
+    { label: "Slim", packages: ["slim/slim"] },
+  ],
+  Testing: [
+    { label: "PHPUnit", packages: [], packagesDev: ["phpunit/phpunit"] },
+    { label: "Pest", packages: [], packagesDev: ["pestphp/pest"] },
+  ],
+  Tools: [
+    {
+      label: "PHPStudio (CS Fixer)",
+      packages: [],
+      packagesDev: ["friendsofphp/php-cs-fixer"],
+    },
+    { label: "Monolog", packages: ["monolog/monolog"] },
+  ],
+};
+
+const RUBY = {
+  Web: [
+    { label: "Rails", packages: ["rails"] },
+    { label: "Sinatra", packages: ["sinatra"] },
+  ],
+  Testing: [{ label: "RSpec", packages: ["rspec"] }],
+  Tools: [{ label: "Rubocop", packages: ["rubocop"] }],
+};
+
+const DART = {
+  "Web/App": [{ label: "Shelf (Server)", packages: ["shelf", "shelf_router"] }],
+  State: [
+    { label: "Provider", packages: ["provider"] },
+    { label: "Riverpod", packages: ["flutter_riverpod"] },
+    { label: "Bloc", packages: ["flutter_bloc"] },
+  ],
+  Utils: [
+    { label: "Dio (HTTP)", packages: ["dio"] },
+    {
+      label: "Freezed",
+      packages: ["freezed_annotation"],
+      packagesDev: ["build_runner", "freezed"],
+    },
+  ],
+};
+
 function getCatalog(language) {
   if (language === "JavaScript/TypeScript") return JS_TS;
   if (language === "Python") return PY;
   if (language === "Rust") return RUST;
   if (language === "Go") return GO;
+  if (language === "PHP") return PHP;
+  if (language === "Ruby") return RUBY;
+  if (language === "Dart") return DART;
   return {};
 }
 
