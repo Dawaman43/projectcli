@@ -28,6 +28,8 @@ try {
 const { getLanguages, getFrameworks, getGenerator } = require("./registry");
 const { runSteps } = require("./run");
 const { runAdd } = require("./add");
+const { checkBinaries } = require("./preflight");
+const { gitClone, removeGitFolder } = require("./remote");
 const { generateCI, generateDocker } = require("./cicd");
 const { getDescription } = require("./descriptions");
 
@@ -134,6 +136,7 @@ function parseArgs(argv) {
     ci: false,
     docker: false,
     learning: false,
+    template: undefined,
   };
 
   const nextValue = (i) => {
@@ -151,7 +154,12 @@ function parseArgs(argv) {
     else if (a === "--ci") out.ci = true;
     else if (a === "--docker") out.docker = true;
     else if (a === "--learning") out.learning = true;
-    else if (a.startsWith("--language="))
+    else if (a.startsWith("--template="))
+      out.template = a.slice("--template=".length);
+    else if (a === "--template") {
+      out.template = nextValue(i);
+      i++;
+    } else if (a.startsWith("--language="))
       out.language = a.slice("--language=".length);
     else if (a === "--language") {
       out.language = nextValue(i);
@@ -213,9 +221,11 @@ function printHelp() {
   console.log("  --ci             Auto-add GitHub Actions CI");
   console.log("  --docker         Auto-add Dockerfile");
   console.log("  --learning       Enable learning mode (shows descriptions)");
+  console.log("  --template       Clone from a Git repository URL");
 }
 
 const BACK = "__back__";
+const COMMUNITY = "Community / Remote";
 
 function withBack(choices) {
   return [
@@ -339,6 +349,7 @@ async function main(options = {}) {
       : undefined;
 
   const state = {
+    template: args.template || undefined,
     language:
       args.language && languages.includes(args.language)
         ? args.language
@@ -360,7 +371,10 @@ async function main(options = {}) {
     state.language === "JavaScript" || state.language === "TypeScript";
 
   let step = "language";
-  if (!state.language) step = "language";
+  if (state.template) {
+    if (!state.name) step = "name";
+    else step = "confirm";
+  } else if (!state.language) step = "language";
   else if (!state.framework) step = "framework";
   else if (needsPackageManager && !state.pm) step = "pm";
   else if (!state.name) step = "name";
@@ -453,6 +467,38 @@ async function main(options = {}) {
       }
 
       state.framework = answer.framework;
+
+      // Preflight Checks
+      const gen = getGenerator(state.language, state.framework);
+      if (gen && gen.check && gen.check.length > 0) {
+        /* eslint-disable-next-line no-console */
+        console.log(chalk.dim("\n(checking requirements...)"));
+        const results = await checkBinaries(gen.check);
+        const missing = results.filter((r) => !r.ok);
+
+        if (missing.length > 0) {
+          console.log(chalk.red.bold("\nMissing required tools:"));
+          missing.forEach((m) => console.log(chalk.red(` - ${m.bin}`)));
+          console.log(
+            chalk.yellow("You may not be able to build or run this project.\n")
+          );
+
+          const { proceed } = await prompt([
+            {
+              type: "confirm",
+              name: "proceed",
+              message: "Continue anyway?",
+              default: false,
+            },
+          ]);
+
+          if (!proceed) {
+            step = "framework";
+            continue;
+          }
+        }
+      }
+
       step = "pm";
       continue;
     }
@@ -528,6 +574,10 @@ async function main(options = {}) {
 
       const v = String(projectName || "").trim();
       if (v.toLowerCase() === "back") {
+        if (state.template) {
+          console.log("Operation cancelled.");
+          process.exit(0);
+        }
         step =
           state.language === "JavaScript" || state.language === "TypeScript"
             ? "pm"
@@ -541,13 +591,75 @@ async function main(options = {}) {
     }
 
     if (step === "confirm") {
+      const projectRoot = path.resolve(process.cwd(), state.name);
+      const targetExists = fs.existsSync(projectRoot);
+
+      if (state.template) {
+        if (targetExists && !args.dryRun) {
+          console.error(
+            `\nError: Target folder already exists: ${projectRoot}`
+          );
+          state.name = undefined;
+          step = "name";
+          continue;
+        }
+
+        console.log("\nProject Configuration:");
+        console.log(`  Template: ${state.template}`);
+        console.log(`  Folder:   ${state.name}`);
+        console.log("");
+
+        if (!args.yes) {
+          const { action } = await prompt([
+            {
+              type: "list",
+              name: "action",
+              message: "Clone this template?",
+              choices: [
+                { name: "Clone template", value: "create" },
+                { name: "Cancel", value: "cancel" },
+              ],
+            },
+          ]);
+          if (action === "cancel") {
+            console.log("Aborted.");
+            return;
+          }
+        }
+
+        if (args.dryRun) {
+          console.log(
+            `[Dry Run] Would clone ${state.template} to ${projectRoot}`
+          );
+          return;
+        }
+
+        console.log(chalk.dim("\nCloning repository..."));
+        try {
+          await gitClone(state.template, projectRoot);
+          // Remove .git to make it a fresh project
+          removeGitFolder(projectRoot);
+
+          console.log(
+            chalk.green(`\nSuccess! Created project at ${projectRoot}`)
+          );
+          console.log(
+            chalk.dim(
+              "You may need to run 'npm install' or similar inside the folder."
+            )
+          );
+        } catch (err) {
+          console.error(chalk.red("\nFailed to clone template:"), err.message);
+          process.exit(1);
+        }
+        return;
+      }
+
       const generator = getGenerator(state.language, state.framework);
       if (!generator) {
         throw new Error("Generator not found (registry mismatch).");
       }
 
-      const projectRoot = path.resolve(process.cwd(), state.name);
-      const targetExists = fs.existsSync(projectRoot);
       if (targetExists && !args.dryRun) {
         console.error(`\nError: Target folder already exists: ${projectRoot}`);
         state.name = undefined;

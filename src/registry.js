@@ -33,6 +33,7 @@ const REGISTRY = {
     "Vite (Vanilla)": {
       id: "js.vite.vanilla",
       label: "Vite (Vanilla)",
+      check: ["npm"],
       commands: (ctx) => {
         const projectName = getProjectName(ctx);
         const pm = getPackageManager(ctx);
@@ -409,6 +410,7 @@ const REGISTRY = {
     Django: {
       id: "py.django",
       label: "Django",
+      check: ["django-admin"],
       commands: (ctx) => {
         const projectName = getProjectName(ctx);
         return [
@@ -423,6 +425,7 @@ const REGISTRY = {
     Flask: {
       id: "py.flask.basic",
       label: "Flask (basic)",
+      check: ["python3"],
       commands: (_ctx) => [
         { type: "mkdir", path: "." },
         {
@@ -502,6 +505,7 @@ const REGISTRY = {
     "Cargo (bin)": {
       id: "rs.cargo.bin",
       label: "Cargo (bin)",
+      check: ["cargo"],
       commands: (ctx) => {
         const projectName = getProjectName(ctx);
         return [
@@ -516,6 +520,7 @@ const REGISTRY = {
     "Cargo (lib)": {
       id: "rs.cargo.lib",
       label: "Cargo (lib)",
+      check: ["cargo"],
       commands: (ctx) => {
         const projectName = getProjectName(ctx);
         return [
@@ -558,6 +563,7 @@ const REGISTRY = {
     "Go module (basic)": {
       id: "go.module.basic",
       label: "Go module (basic)",
+      check: ["go"],
       commands: (ctx) => {
         const projectName = getProjectName(ctx);
         return [
