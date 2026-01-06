@@ -2,12 +2,17 @@
 
 <!-- TODO: Replace this with a real asciinema GIF/video -->
 
-**Demo (2 minutes):** _(recording coming next)_
+**Demo (2 minutes):**
+
+- Play locally: `asciinema play docs/demo.cast`
+- Or convert to GIF and replace the image below
 
 > Want to upgrade this to a real recording? Record with `asciinema rec` and convert to GIF.
 > Then replace the placeholder at `docs/demo.svg` (or switch the link back to a GIF).
 
 ![ProjectCLI terminal demo](docs/demo.svg)
+
+Asciinema recording file: `docs/demo.cast`
 
 > **The Swiss Army Knife for Project Scaffolding.**  
 > Bootstrapping new projects shouldn't require memorizing 50 different CLI commands.

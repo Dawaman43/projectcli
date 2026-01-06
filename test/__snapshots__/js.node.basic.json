@@ -1,0 +1,21 @@
+[
+  {
+    "type": "mkdir",
+    "path": "."
+  },
+  {
+    "type": "writeFile",
+    "path": "package.json",
+    "content": "{\n  \"name\": \"demo-app\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"type\": \"commonjs\",\n  \"scripts\": {\n    \"start\": \"node index.js\"\n  }\n}\n"
+  },
+  {
+    "type": "writeFile",
+    "path": "index.js",
+    "content": "console.log('hello');\n"
+  },
+  {
+    "type": "writeFile",
+    "path": ".gitignore",
+    "content": "node_modules\n.DS_Store\n.env\n"
+  }
+]

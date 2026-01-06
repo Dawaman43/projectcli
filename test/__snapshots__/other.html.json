@@ -1,0 +1,16 @@
+[
+  {
+    "type": "mkdir",
+    "path": "."
+  },
+  {
+    "type": "writeFile",
+    "path": "index.html",
+    "content": "<!DOCTYPE html>\\n<html lang=\"en\">\\n<head>\\n    <meta charset=\"UTF-8\">\\n    <title>My App</title>\\n</head>\\n<body>\\n    <h1>Hello World</h1>\\n</body>\\n</html>"
+  },
+  {
+    "type": "writeFile",
+    "path": "style.css",
+    "content": "body { font-family: sans-serif; }"
+  }
+]

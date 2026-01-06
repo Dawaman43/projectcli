@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "width": 90,
+  "height": 24,
+  "timestamp": 1736200000,
+  "env": {
+    "SHELL": "zsh",
+    "TERM": "xterm-256color"
+  }
+}
+[0.20, "o", "$ npx @dawitworku/projectcli@latest\r\n"]
+[0.55, "o", "\u001b[35m  The Swiss Army Knife for Developers\u001b[0m\r\n"]
+[0.85, "o", "\u001b[36m ? \u001b[1mSelect a Language\u001b[0m \u001b[2m(Type to search)\u001b[0m\r\n"]
+[1.10, "o", "  JavaScript (18)\r\n  Rust (12)\r\n  Python (10)\r\n  Go (8)\r\n"]
+[1.45, "o", "\u001b[32m›\u001b[0m Rust\r\n"]
+[1.85, "o", "\u001b[36m ? \u001b[1mFramework\u001b[0m \u001b[2m(type to search)\u001b[0m\r\n"]
+[2.15, "o", "\u001b[32m›\u001b[0m Axum \u001b[32m✅ Core\u001b[0m\r\n"]
+[2.55, "o", "\u001b[2m(checking requirements...)\u001b[0m\r\n"]
+[2.85, "o", "\u001b[36m ? \u001b[1mProject folder name\u001b[0m\r\n"]
+[3.20, "o", "my-api\r\n"]
+[3.65, "o", "\u001b[36m ? \u001b[1mExtras\u001b[0m\r\n"]
+[4.05, "o", "\u001b[32m✓\u001b[0m GitHub Actions CI  \u001b[32m✓\u001b[0m Dockerfile\r\n"]
+[4.45, "o", "\u001b[2mDone. Created project in: ./my-api\u001b[0m\r\n"]

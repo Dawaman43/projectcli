@@ -18,6 +18,7 @@
   },
   "files": [
     "bin",
+    "scripts",
     "src",
     "README.md",
     "CHANGELOG.md",
@@ -36,7 +37,9 @@
   "scripts": {
     "start": "node bin/projectcli.js",
     "test": "node --test",
-    "lint": "node -c bin/projectcli.js && node -c src/index.js && node -c src/registry.js && node -c src/run.js && node -c src/settings.js && node -c src/config.js && node -c src/devcontainer.js && node -c src/license.js"
+    "lint": "node -c bin/projectcli.js && node -c src/index.js && node -c src/registry.js && node -c src/run.js && node -c src/settings.js && node -c src/config.js && node -c src/devcontainer.js && node -c src/license.js",
+    "release:notes": "node scripts/release-notes.js $npm_package_version",
+    "release:check": "npm test && npm run lint && node -e \"const v=require('./package.json').version; if(!/^\\d+\\.\\d+\\.\\d+$/.test(v)) { console.error('Invalid semver: '+v); process.exit(1);} console.log('OK version', v)\""
   },
   "dependencies": {
     "boxen": "^5.1.2",
