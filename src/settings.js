@@ -14,13 +14,33 @@ async function runConfig({ prompt }) {
       message: "Default Package Manager (for JS/TS):",
       choices: [
         { name: "None (Always ask)", value: null },
-        new inquirerSeparator(),
+        inquirerSeparator(),
         { name: "npm", value: "npm" },
         { name: "pnpm", value: "pnpm" },
         { name: "yarn", value: "yarn" },
         { name: "bun", value: "bun" },
       ],
       default: config.packageManager || null,
+    },
+    {
+      type: "input",
+      name: "author",
+      message: "Default Author Name (for LICENSE):",
+      default: config.author || "The Authors",
+      filter: (v) => String(v || "").trim(),
+    },
+    {
+      type: "list",
+      name: "defaultLicense",
+      message: "Default License Type:",
+      choices: [
+        { name: "None", value: null },
+        inquirerSeparator(),
+        { name: "MIT", value: "MIT" },
+        { name: "Apache-2.0", value: "Apache2" },
+        { name: "ISC", value: "ISC" },
+      ],
+      default: config.defaultLicense || "MIT",
     },
     {
       type: "confirm",
@@ -37,8 +57,6 @@ async function runConfig({ prompt }) {
 // Helper for pure inquirer usage if needed,
 // though index.js passes the prompt instance.
 function inquirerSeparator() {
-  // We can't easily import inquirer.Separator here without adding dependency
-  // or passing it in. Let's just use a string for now or skip it.
   return { name: "──────────────", disabled: true };
 }
 

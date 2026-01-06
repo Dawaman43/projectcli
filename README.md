@@ -19,6 +19,8 @@ We handle the complexity of calling the official CLIs for you.
 - **Preflight Checks**: Warns you if you are missing required tools (e.g. `cargo`, `go`, `node`) before you start.
 - **Remote Templates**: Clone any GitHub repository and automatically strip `.git` history for a fresh start.
 - **CI/CD & Docker**: One-click generation of GitHub Actions workflows and Dockerfiles.
+- **Dev Containers**: Generate `.devcontainer/devcontainer.json` for VS Code / Codespaces.
+- **License Generator**: Add a standard `LICENSE` file (configurable default).
 
 ## 🚀 Quick Start
 
@@ -80,6 +82,12 @@ Save your preferences (like default package manager):
 ```bash
 projectcli config
 ```
+
+You can set defaults like:
+
+- JS/TS package manager
+- Author name (for LICENSE)
+- Default license type (MIT/Apache2/ISC)
 
 ## 📦 Supported Generators (Partial List)
 

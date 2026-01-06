@@ -32,7 +32,7 @@
   ],
   "scripts": {
     "start": "node bin/projectcli.js",
-    "lint": "node -c bin/projectcli.js && node -c src/index.js && node -c src/registry.js && node -c src/run.js"
+    "lint": "node -c bin/projectcli.js && node -c src/index.js && node -c src/registry.js && node -c src/run.js && node -c src/settings.js && node -c src/config.js && node -c src/devcontainer.js && node -c src/license.js"
   },
   "dependencies": {
     "boxen": "^5.1.2",

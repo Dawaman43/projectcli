@@ -31,6 +31,8 @@ const { runAdd } = require("./add");
 const { checkBinaries } = require("./preflight");
 const { gitClone, removeGitFolder } = require("./remote");
 const { generateCI, generateDocker } = require("./cicd");
+const { generateDevContainer } = require("./devcontainer");
+const { generateLicense, licenseTypes } = require("./license");
 const { getDescription } = require("./descriptions");
 const { detectLanguage, detectPackageManager } = require("./detect");
 const { loadConfig } = require("./config");
@@ -138,6 +140,8 @@ function parseArgs(argv) {
     pm: undefined,
     ci: false,
     docker: false,
+    devcontainer: false,
+    license: undefined,
     learning: false,
     template: undefined,
   };
@@ -156,6 +160,9 @@ function parseArgs(argv) {
     else if (a === "--dry-run") out.dryRun = true;
     else if (a === "--ci") out.ci = true;
     else if (a === "--docker") out.docker = true;
+    else if (a === "--devcontainer") out.devcontainer = true;
+    else if (a === "--license") out.license = true;
+    else if (a === "--no-license") out.license = false;
     else if (a === "--learning") out.learning = true;
     else if (a.startsWith("--template="))
       out.template = a.slice("--template=".length);
@@ -224,6 +231,9 @@ function printHelp() {
   );
   console.log("  --ci             Auto-add GitHub Actions CI");
   console.log("  --docker         Auto-add Dockerfile");
+  console.log("  --devcontainer   Auto-add VS Code Dev Container");
+  console.log("  --license        Force-add LICENSE (uses config defaults)");
+  console.log("  --no-license     Never add LICENSE");
   console.log("  --learning       Enable learning mode (shows descriptions)");
   console.log("  --template       Clone from a Git repository URL");
 }
@@ -259,6 +269,22 @@ function printStepsPreview(steps) {
     }
   }
   console.log("");
+}
+
+function filterExistingWriteFiles(steps, projectRoot) {
+  const kept = [];
+  const skipped = [];
+  for (const step of steps || []) {
+    if (step && step.type === "writeFile" && typeof step.path === "string") {
+      const target = path.resolve(projectRoot, step.path);
+      if (fs.existsSync(target)) {
+        skipped.push(step.path);
+        continue;
+      }
+    }
+    kept.push(step);
+  }
+  return { kept, skipped };
 }
 
 function printList() {
@@ -361,6 +387,8 @@ async function main(options = {}) {
             { name: "Add Library / Dependency", value: "add" },
             { name: "Add GitHub Actions CI", value: "ci" },
             { name: "Add Dockerfile", value: "docker" },
+            { name: "Add Dev Container (VS Code)", value: "devcontainer" },
+            { name: "Add License", value: "license" },
             new inquirer.Separator(),
             { name: "Start New Project Here", value: "new" },
             { name: "Exit", value: "exit" },
@@ -376,20 +404,31 @@ async function main(options = {}) {
         return;
       }
 
-      if (action === "ci" || action === "docker") {
+      if (action === "ci" || action === "docker" || action === "devcontainer") {
         const pm = detectPackageManager(process.cwd());
         let langArg = detected;
         if (detected === "JavaScript/TypeScript") langArg = "JavaScript";
         if (detected === "Java/Kotlin") langArg = "Java";
 
-        const steps =
-          action === "ci"
-            ? generateCI(process.cwd(), langArg, pm)
-            : generateDocker(process.cwd(), langArg);
+        let steps = [];
+        if (action === "ci") steps = generateCI(process.cwd(), langArg, pm);
+        else if (action === "docker")
+          steps = generateDocker(process.cwd(), langArg);
+        else steps = generateDevContainer(process.cwd(), langArg);
 
-        if (steps.length > 0) {
+        const { kept, skipped } = filterExistingWriteFiles(
+          steps,
+          process.cwd()
+        );
+
+        if (kept.length > 0) {
           console.log("\nApplying changes...");
-          await runSteps(steps, { projectRoot: process.cwd() });
+          await runSteps(kept, { projectRoot: process.cwd() });
+          if (skipped.length > 0) {
+            console.log(
+              chalk.dim(`Skipped existing files: ${skipped.join(", ")}`)
+            );
+          }
           console.log(chalk.green("Done!"));
         } else {
           console.log(
@@ -398,6 +437,40 @@ async function main(options = {}) {
             )
           );
         }
+        return;
+      }
+
+      if (action === "license") {
+        const { type, author } = await prompt([
+          {
+            type: "list",
+            name: "type",
+            message: "Choose a license:",
+            choices: licenseTypes,
+          },
+          {
+            type: "input",
+            name: "author",
+            message: "Author Name:",
+            default: userConfig.author || "The Authors",
+          },
+        ]);
+        const steps = generateLicense(process.cwd(), type, author);
+        const { kept, skipped } = filterExistingWriteFiles(
+          steps,
+          process.cwd()
+        );
+        if (kept.length === 0) {
+          console.log(chalk.dim("Nothing to do (LICENSE already exists)."));
+          return;
+        }
+        await runSteps(kept, { projectRoot: process.cwd() });
+        if (skipped.length > 0) {
+          console.log(
+            chalk.dim(`Skipped existing files: ${skipped.join(", ")}`)
+          );
+        }
+        console.log(chalk.green("Done!"));
         return;
       }
 
@@ -444,6 +517,17 @@ async function main(options = {}) {
   if (userConfig.learningMode && args.learning === false) {
     args.learning = true;
   }
+
+  const defaultLicenseType =
+    typeof userConfig.defaultLicense === "string" &&
+    licenseTypes.includes(userConfig.defaultLicense)
+      ? userConfig.defaultLicense
+      : null;
+
+  const defaultAuthor =
+    typeof userConfig.author === "string" && userConfig.author.trim()
+      ? userConfig.author.trim()
+      : "The Authors";
 
   const state = {
     template: args.template || undefined,
@@ -737,6 +821,104 @@ async function main(options = {}) {
           // Remove .git to make it a fresh project
           removeGitFolder(projectRoot);
 
+          // Optional extras after cloning
+          const detectedTemplate = detectLanguage(projectRoot);
+          const pmTemplate = detectPackageManager(projectRoot);
+
+          let langArg = detectedTemplate;
+          if (detectedTemplate === "JavaScript/TypeScript")
+            langArg = "JavaScript";
+          if (detectedTemplate === "Java/Kotlin") langArg = "Java";
+
+          let wantCi = Boolean(args.ci);
+          let wantDocker = Boolean(args.docker);
+          let wantDevContainer = Boolean(args.devcontainer);
+          let wantLicense =
+            typeof args.license === "boolean"
+              ? args.license
+              : defaultLicenseType !== null;
+
+          if (!args.yes) {
+            const licenseLabel =
+              defaultLicenseType !== null
+                ? `LICENSE (${defaultLicenseType})`
+                : "LICENSE (skip)";
+
+            const { extras } = await prompt([
+              {
+                type: "checkbox",
+                name: "extras",
+                message: "Extras to apply after clone:",
+                choices: [
+                  { name: "GitHub Actions CI", value: "ci", checked: wantCi },
+                  {
+                    name: "Dockerfile",
+                    value: "docker",
+                    checked: wantDocker,
+                  },
+                  {
+                    name: "Dev Container (VS Code)",
+                    value: "devcontainer",
+                    checked: wantDevContainer,
+                  },
+                  {
+                    name: licenseLabel,
+                    value: "license",
+                    checked: wantLicense,
+                    disabled:
+                      defaultLicenseType === null
+                        ? "Configure a default license in 'projectcli config'"
+                        : false,
+                  },
+                ],
+              },
+            ]);
+            if (extras) {
+              wantCi = extras.includes("ci");
+              wantDocker = extras.includes("docker");
+              wantDevContainer = extras.includes("devcontainer");
+              wantLicense = extras.includes("license");
+            }
+          }
+
+          const extraSteps = [];
+          if (wantCi)
+            extraSteps.push(...generateCI(projectRoot, langArg, pmTemplate));
+          if (wantDocker)
+            extraSteps.push(...generateDocker(projectRoot, langArg));
+          if (wantDevContainer) {
+            extraSteps.push(...generateDevContainer(projectRoot, langArg));
+          }
+          if (wantLicense && defaultLicenseType !== null) {
+            extraSteps.push(
+              ...generateLicense(projectRoot, defaultLicenseType, defaultAuthor)
+            );
+          }
+
+          if (wantLicense && defaultLicenseType === null) {
+            console.log(
+              chalk.dim(
+                "Skipping LICENSE (no default license configured; run 'projectcli config')."
+              )
+            );
+          }
+
+          if (extraSteps.length > 0) {
+            const { kept, skipped } = filterExistingWriteFiles(
+              extraSteps,
+              projectRoot
+            );
+            if (kept.length > 0) {
+              console.log(chalk.dim("\nApplying extras..."));
+              await runSteps(kept, { projectRoot });
+            }
+            if (skipped.length > 0) {
+              console.log(
+                chalk.dim(`Skipped existing files: ${skipped.join(", ")}`)
+              );
+            }
+          }
+
           console.log(
             chalk.green(`\nSuccess! Created project at ${projectRoot}`)
           );
@@ -921,10 +1103,15 @@ async function main(options = {}) {
         }
       }
 
-      // CI/CD & Docker
+      // CI/CD & Docker & DevContainer
       if (!args.dryRun) {
         let wantCi = args.ci;
         let wantDocker = args.docker;
+        let wantDevContainer = Boolean(args.devcontainer);
+        let wantLicense =
+          typeof args.license === "boolean"
+            ? args.license
+            : defaultLicenseType !== null;
 
         if (!args.yes) {
           const { extras } = await prompt([
@@ -935,12 +1122,31 @@ async function main(options = {}) {
               choices: [
                 { name: "GitHub Actions CI", value: "ci", checked: wantCi },
                 { name: "Dockerfile", value: "docker", checked: wantDocker },
+                {
+                  name: "Dev Container (VS Code)",
+                  value: "devcontainer",
+                  checked: wantDevContainer,
+                },
+                {
+                  name:
+                    defaultLicenseType !== null
+                      ? `LICENSE (${defaultLicenseType})`
+                      : "LICENSE (skip)",
+                  value: "license",
+                  checked: wantLicense,
+                  disabled:
+                    defaultLicenseType === null
+                      ? "Configure a default license in 'projectcli config'"
+                      : false,
+                },
               ],
             },
           ]);
           if (extras) {
             wantCi = extras.includes("ci");
             wantDocker = extras.includes("docker");
+            wantDevContainer = extras.includes("devcontainer");
+            wantLicense = extras.includes("license");
           }
         }
 
@@ -951,10 +1157,28 @@ async function main(options = {}) {
         if (wantDocker) {
           extraSteps.push(...generateDocker(projectRoot, state.language));
         }
+        if (wantDevContainer) {
+          extraSteps.push(...generateDevContainer(projectRoot, state.language));
+        }
+        if (wantLicense && defaultLicenseType !== null) {
+          extraSteps.push(
+            ...generateLicense(projectRoot, defaultLicenseType, defaultAuthor)
+          );
+        }
 
-        if (extraSteps.length > 0) {
+        const { kept, skipped } = filterExistingWriteFiles(
+          extraSteps,
+          projectRoot
+        );
+
+        if (kept.length > 0) {
           console.log("Adding extras...");
-          await runSteps(extraSteps, { projectRoot });
+          await runSteps(kept, { projectRoot });
+        }
+        if (skipped.length > 0) {
+          console.log(
+            chalk.dim(`Skipped existing files: ${skipped.join(", ")}`)
+          );
         }
       }
 
