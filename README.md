@@ -113,6 +113,22 @@ You can set defaults like:
 | **Java/Kotlin**           | Spring Boot, Gradle/Maven...                                  |
 | **...and more**           | C#, Ruby, Swift, Dart                                         |
 
+## 🧱 Architecture (for contributors)
+
+ProjectCLI is intentionally simple: most “features” are data-driven.
+
+- **Registry**: generators live in `src/registry.js` as `(Language -> Framework -> generator)` entries.
+- **Generators produce steps**: each generator returns a list of steps (commands / mkdir / writeFile).
+- **Executor**: steps are executed by `src/run.js` (it also prevents writing outside the project folder).
+- **Preflight**: generators can declare required tools with `check: ["cargo", "go", ...]` and the wizard warns early.
+- **Remote templates**: `--template` clones via `src/remote.js`, strips `.git`, then can apply Extras (CI/Docker/Devcontainer/License).
+
+Adding a framework usually means:
+
+1. Add an entry in `src/registry.js` with `id`, optional `notes`, optional `check`, and a `commands()` function.
+2. Prefer non-interactive CLI args where possible (better for `--yes`/automation).
+3. Run `npm run lint` and `npm test`.
+
 ## 🤝 Contributing
 
 We love contributions! Whether it's adding a new framework to the registry or fixing a bug.
