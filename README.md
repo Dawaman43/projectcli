@@ -5,6 +5,8 @@
 - Play locally: `asciinema play docs/demo.cast`
 - Convert to plain text (for quick sharing): `asciinema convert --output-format txt docs/demo.cast -`
 
+![ProjectCLI terminal demo](docs/demo.svg)
+
 Asciinema recording file: `docs/demo.cast`
 
 > **The Swiss Army Knife for Project Scaffolding.**  
