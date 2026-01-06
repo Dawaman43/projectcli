@@ -1,11 +1,9 @@
 # ProjectCLI 🚀
 
-<!-- TODO: Replace this with a real asciinema GIF/video -->
-
 **Demo (2 minutes):**
 
 - Play locally: `asciinema play docs/demo.cast`
-- Or convert to GIF and replace the image below
+- Convert to SVG/GIF (for README): `asciinema convert docs/demo.cast docs/demo.svg`
 
 > Want to upgrade this to a real recording? Record with `asciinema rec` and convert to GIF.
 > Then replace the placeholder at `docs/demo.svg` (or switch the link back to a GIF).
@@ -19,6 +17,8 @@ Asciinema recording file: `docs/demo.cast`
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://badge.fury.io/js/@dawitworku%2Fprojectcli.svg)](https://badge.fury.io/js/@dawitworku%2Fprojectcli)
+[![npm downloads](https://img.shields.io/npm/dm/@dawitworku/projectcli)](https://www.npmjs.com/package/@dawitworku/projectcli)
+[![CI](https://github.com/dawitworku/projectcli/actions/workflows/ci.yml/badge.svg)](https://github.com/dawitworku/projectcli/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
 **ProjectCLI** is an interactive, cross-language project generator. Instead of remembering usage for `create-react-app`, `cargo new`, `poetry new`, `laravel new`, `rails new`, etc., just run `projectcli`.

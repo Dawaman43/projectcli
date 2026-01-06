@@ -13,6 +13,9 @@
   "homepage": "https://github.com/dawitworku/projectcli#readme",
   "license": "MIT",
   "type": "commonjs",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "projectcli": "bin/projectcli.js"
   },

@@ -32,6 +32,20 @@ git push && git push --tags
 
 6. GitHub Actions will create a GitHub Release from the `CHANGELOG.md` section automatically (see `.github/workflows/release.yml`).
 
+## Publish to npm (recommended)
+
+This repo includes a workflow that publishes on tag pushes (see `.github/workflows/npm-publish.yml`).
+
+Prereqs:
+
+- Create an npm access token with publish rights.
+- Add it to GitHub repo secrets as `NPM_TOKEN`.
+
+Notes:
+
+- The package is scoped, so `package.json` sets `publishConfig.access=public`.
+- First publish may require `npm publish --access public` locally depending on your npm account defaults.
+
 ## Generate release notes locally
 
 ```bash
