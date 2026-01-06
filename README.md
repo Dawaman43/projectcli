@@ -67,6 +67,12 @@ Clone a starter kit from GitHub and make it your own instantly:
 projectcli --template https://github.com/example/starter-repo --name my-app
 ```
 
+You can also apply extras non-interactively:
+
+```bash
+projectcli --template https://github.com/example/starter-repo --name my-app --yes --ci --docker --devcontainer --license
+```
+
 ### Automation / CI Use
 
 Skip the interactive prompts for scripts or specialized workflows:
@@ -74,6 +80,12 @@ Skip the interactive prompts for scripts or specialized workflows:
 ```bash
 projectcli --language Rust --framework Actix --name my-api --ci --docker --yes
 ```
+
+Extras flags:
+
+- `--devcontainer` add a VS Code Dev Container
+- `--license` force-add LICENSE (uses config defaults)
+- `--no-license` never add LICENSE
 
 ### Configuration
 

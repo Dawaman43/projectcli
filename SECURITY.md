@@ -8,8 +8,8 @@ ProjectCLI is a CLI tool. Security fixes are released on the latest version.
 
 If you believe you have found a security vulnerability, please report it privately.
 
-- Email: (add a security contact email here)
-- Or open a GitHub issue with **only high-level details**, and we will follow up.
+- Preferred: use GitHub Security Advisories (Private Vulnerability Report) on the repository.
+- If you cannot use advisories, open a GitHub issue with **only high-level details**, and we will follow up.
 
 Please include:
 
