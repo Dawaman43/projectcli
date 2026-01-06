@@ -1,0 +1,53 @@
+name: Bug Report
+description: Report a reproducible bug
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please include enough detail for us to reproduce.
+  - type: input
+    id: version
+    attributes:
+      label: ProjectCLI version
+      description: Output of `projectcli --version` (or package version)
+      placeholder: "0.2.2"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Linux / macOS / Windows"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Copy/paste exact commands and inputs
+      placeholder: |
+        1. projectcli --language ...
+        2. Select ...
+        3. See error ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: Paste error output here
+      render: shell
