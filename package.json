@@ -1,6 +1,6 @@
 {
   "name": "@dawitworku/projectcli",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "Interactive project generator (language -> framework -> create).",
   "license": "MIT",
   "type": "commonjs",
@@ -26,7 +26,13 @@
     "lint": "node -c bin/projectcli.js && node -c src/index.js && node -c src/registry.js && node -c src/run.js"
   },
   "dependencies": {
-    "inquirer": "^9.2.23",
-    "inquirer-autocomplete-prompt": "^3.0.1"
+    "boxen": "^5.1.2",
+    "chalk": "^4.1.2",
+    "figlet": "^1.9.4",
+    "fuse.js": "^7.1.0",
+    "gradient-string": "^3.0.0",
+    "inquirer": "^8.2.6",
+    "inquirer-autocomplete-prompt": "^2.0.0",
+    "ora": "^5.4.1"
   }
 }

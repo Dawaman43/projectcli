@@ -58,7 +58,7 @@ function pmExecCommand(pm, pkg, pkgArgs) {
 
   if (pm === "pnpm") return { program: "pnpm", args: ["dlx", pkg, ...args] };
   if (pm === "yarn") return { program: "yarn", args: ["dlx", pkg, ...args] };
-  if (pm === "bun") return { program: "bunx", args: [pkg, ...args] };
+  if (pm === "bun") return { program: "bun", args: ["x", pkg, ...args] };
   if (pm === "mvn")
     return { program: "mvn", args: ["archetype:generate", ...args] };
   if (pm === "gradle") return { program: "gradle", args: ["init", ...args] };
