@@ -50,6 +50,8 @@ function parseArgs(argv) {
     help: false,
     version: false,
     list: false,
+    yes: false,
+    dryRun: false,
     language: undefined,
     framework: undefined,
     name: undefined,
@@ -66,6 +68,8 @@ function parseArgs(argv) {
     if (a === "--help" || a === "-h") out.help = true;
     else if (a === "--version" || a === "-v") out.version = true;
     else if (a === "--list") out.list = true;
+    else if (a === "--yes" || a === "-y") out.yes = true;
+    else if (a === "--dry-run") out.dryRun = true;
     else if (a.startsWith("--language="))
       out.language = a.slice("--language=".length);
     else if (a === "--language") {
@@ -117,12 +121,42 @@ function printHelp() {
   console.log("  --help, -h       Show help");
   console.log("  --version, -v    Show version");
   console.log("  --list           List available languages/frameworks");
+  console.log("  --yes, -y        Skip confirmation");
+  console.log("  --dry-run        Print planned actions, do nothing");
   console.log("  --language       Preselect language");
   console.log("  --framework      Preselect framework");
   console.log("  --name           Project folder name");
   console.log(
     "  --pm             Package manager for JS/TS (npm|pnpm|yarn|bun)"
   );
+}
+
+const BACK = "__back__";
+
+function withBack(choices) {
+  return [
+    { name: "← Back", value: BACK },
+    new inquirer.Separator(),
+    ...choices,
+  ];
+}
+
+function printStepsPreview(steps) {
+  console.log("\nPlanned actions:");
+  for (const step of steps) {
+    const type = step.type || "command";
+    if (type === "command") {
+      const where = step.cwdFromProjectRoot ? "(in project)" : "(here)";
+      console.log(`- ${step.program} ${step.args.join(" ")} ${where}`);
+    } else if (type === "mkdir") {
+      console.log(`- mkdir -p ${step.path}`);
+    } else if (type === "writeFile") {
+      console.log(`- write ${step.path}`);
+    } else {
+      console.log(`- ${type}`);
+    }
+  }
+  console.log("");
 }
 
 function printList() {
@@ -166,81 +200,14 @@ async function main(options = {}) {
 
   console.log("\nprojectcli");
   console.log("Create a project in seconds.");
-  console.log(`Host: ${os.platform()} ${os.arch()}\n`);
+  console.log(`Host: ${os.platform()} ${os.arch()}`);
+  console.log("Tip: use ↑/↓, Enter, and type-to-search when available.");
+  console.log("Tip: Ctrl+C anytime to quit.\n");
 
   const languages = getLanguages();
   if (languages.length === 0) {
     throw new Error("No languages configured.");
   }
-
-  const languageChoices = languages.map((lang) => {
-    const count = getFrameworks(lang).length;
-    return { name: `${lang} (${count})`, value: lang, short: lang };
-  });
-
-  const selectedLanguage =
-    args.language && languages.includes(args.language)
-      ? args.language
-      : (
-          await prompt([
-            {
-              type: "list",
-              name: "language",
-              message: "Choose a language:",
-              choices: languageChoices,
-              pageSize: 12,
-            },
-          ])
-        ).language;
-
-  const frameworks = getFrameworks(selectedLanguage);
-  if (frameworks.length === 0) {
-    throw new Error(`No frameworks configured for ${selectedLanguage}.`);
-  }
-
-  const frameworkChoices = frameworks.map((fw) => {
-    const gen = getGenerator(selectedLanguage, fw);
-    const note = gen?.notes ? ` — ${gen.notes}` : "";
-    return { name: `${fw}${note}`, value: fw, short: fw };
-  });
-
-  const selectedFramework =
-    args.framework && frameworks.includes(args.framework)
-      ? args.framework
-      : hasAutocomplete && frameworkChoices.length > 12
-      ? (
-          await prompt([
-            {
-              type: "autocomplete",
-              name: "framework",
-              message: "Choose a framework (type to search):",
-              pageSize: 12,
-              source: async (_answersSoFar, input) => {
-                const q = String(input || "")
-                  .toLowerCase()
-                  .trim();
-                if (!q) return frameworkChoices;
-                return frameworkChoices.filter((c) =>
-                  String(c.name).toLowerCase().includes(q)
-                );
-              },
-            },
-          ])
-        ).framework
-      : (
-          await prompt([
-            {
-              type: "list",
-              name: "framework",
-              message: "Choose a framework:",
-              choices: frameworkChoices,
-              pageSize: 12,
-            },
-          ])
-        ).framework;
-
-  const needsPackageManager =
-    selectedLanguage === "JavaScript" || selectedLanguage === "TypeScript";
 
   const allowedPms = ["npm", "pnpm", "yarn", "bun"];
   const preselectedPm =
@@ -248,84 +215,297 @@ async function main(options = {}) {
       ? args.pm
       : undefined;
 
-  const packageManager = needsPackageManager
-    ? preselectedPm ||
-      (
-        await prompt([
+  const state = {
+    language:
+      args.language && languages.includes(args.language)
+        ? args.language
+        : undefined,
+    framework: undefined,
+    pm: preselectedPm,
+    name: args.name && isSafeProjectName(args.name) ? args.name : undefined,
+  };
+
+  if (state.language) {
+    const frameworksForLanguage = getFrameworks(state.language);
+    state.framework =
+      args.framework && frameworksForLanguage.includes(args.framework)
+        ? args.framework
+        : undefined;
+  }
+
+  const needsPackageManager =
+    state.language === "JavaScript" || state.language === "TypeScript";
+
+  let step = "language";
+  if (!state.language) step = "language";
+  else if (!state.framework) step = "framework";
+  else if (needsPackageManager && !state.pm) step = "pm";
+  else if (!state.name) step = "name";
+  else step = "confirm";
+
+  while (true) {
+    if (step === "language") {
+      const languageChoices = languages.map((lang) => {
+        const count = getFrameworks(lang).length;
+        return { name: `${lang} (${count})`, value: lang, short: lang };
+      });
+
+      const { language } = await prompt([
+        {
+          type: "list",
+          name: "language",
+          message: "Language:",
+          choices: languageChoices,
+          pageSize: 12,
+        },
+      ]);
+
+      state.language = language;
+      state.framework = undefined;
+      if (!preselectedPm) state.pm = undefined;
+      step = "framework";
+      continue;
+    }
+
+    if (step === "framework") {
+      const frameworks = getFrameworks(state.language);
+      if (frameworks.length === 0) {
+        throw new Error(`No frameworks configured for ${state.language}.`);
+      }
+
+      const frameworkChoices = frameworks.map((fw) => {
+        const gen = getGenerator(state.language, fw);
+        const note = gen?.notes ? ` — ${gen.notes}` : "";
+        return { name: `${fw}${note}`, value: fw, short: fw };
+      });
+
+      const frameworkQuestion =
+        hasAutocomplete && frameworkChoices.length > 12
+          ? {
+              type: "autocomplete",
+              name: "framework",
+              message: "Framework (type to search):",
+              pageSize: 12,
+              source: async (_answersSoFar, input) => {
+                const q = String(input || "")
+                  .toLowerCase()
+                  .trim();
+                if (!q) return withBack(frameworkChoices);
+                return withBack(
+                  frameworkChoices.filter((c) =>
+                    String(c.name).toLowerCase().includes(q)
+                  )
+                );
+              },
+            }
+          : {
+              type: "list",
+              name: "framework",
+              message: "Framework:",
+              choices: withBack(frameworkChoices),
+              pageSize: 12,
+            };
+
+      const answer = await prompt([frameworkQuestion]);
+      if (answer.framework === BACK) {
+        step = "language";
+        continue;
+      }
+
+      state.framework = answer.framework;
+      step = "pm";
+      continue;
+    }
+
+    if (step === "pm") {
+      const needsPackageManager =
+        state.language === "JavaScript" || state.language === "TypeScript";
+
+      if (!needsPackageManager) {
+        state.pm = undefined;
+        step = "name";
+        continue;
+      }
+
+      if (state.pm) {
+        step = "name";
+        continue;
+      }
+
+      const { pm } = await prompt([
+        {
+          type: "list",
+          name: "pm",
+          message: "Package manager:",
+          choices: withBack([
+            { name: "npm (default)", value: "npm" },
+            { name: "pnpm", value: "pnpm" },
+            { name: "yarn", value: "yarn" },
+            { name: "bun", value: "bun" },
+          ]),
+          pageSize: 10,
+        },
+      ]);
+
+      if (pm === BACK) {
+        step = "framework";
+        continue;
+      }
+
+      state.pm = pm;
+      step = "name";
+      continue;
+    }
+
+    if (step === "name") {
+      if (state.name) {
+        step = "confirm";
+        continue;
+      }
+
+      const { projectName } = await prompt([
+        {
+          type: "input",
+          name: "projectName",
+          message: "Project folder name (or type 'back'):",
+          validate: (input) => {
+            const v = String(input || "").trim();
+            if (v.toLowerCase() === "back") return true;
+            if (!isSafeProjectName(v)) {
+              return "Use a simple folder name (no slashes).";
+            }
+            const target = path.resolve(process.cwd(), v);
+            if (fs.existsSync(target)) {
+              return "That folder already exists. Pick a different name.";
+            }
+            return true;
+          },
+        },
+      ]);
+
+      const v = String(projectName || "").trim();
+      if (v.toLowerCase() === "back") {
+        step =
+          state.language === "JavaScript" || state.language === "TypeScript"
+            ? "pm"
+            : "framework";
+        continue;
+      }
+
+      state.name = v;
+      step = "confirm";
+      continue;
+    }
+
+    if (step === "confirm") {
+      const generator = getGenerator(state.language, state.framework);
+      if (!generator) {
+        throw new Error("Generator not found (registry mismatch).");
+      }
+
+      const projectRoot = path.resolve(process.cwd(), state.name);
+      const targetExists = fs.existsSync(projectRoot);
+      if (targetExists && !args.dryRun) {
+        console.error(`\nError: Target folder already exists: ${projectRoot}`);
+        state.name = undefined;
+        step = "name";
+        continue;
+      }
+
+      const summaryLines = [
+        `Project: ${state.name}`,
+        `Language: ${state.language}`,
+        `Framework: ${state.framework}`,
+      ];
+      if (state.pm) summaryLines.push(`Package manager: ${state.pm}`);
+      console.log("\n" + summaryLines.join("\n") + "\n");
+
+      if (targetExists && args.dryRun) {
+        console.log(`Note: target folder already exists: ${projectRoot}`);
+      }
+
+      const steps = generator.commands({
+        projectName: state.name,
+        packageManager: state.pm,
+      });
+
+      if (args.dryRun) {
+        printStepsPreview(steps);
+        console.log("Dry run: nothing executed.");
+        return;
+      }
+
+      if (!args.yes) {
+        const { action } = await prompt([
           {
             type: "list",
-            name: "pm",
-            message: "Package manager:",
+            name: "action",
+            message: "Continue?",
             choices: [
-              { name: "npm (default)", value: "npm" },
-              { name: "pnpm", value: "pnpm" },
-              { name: "yarn", value: "yarn" },
-              { name: "bun", value: "bun" },
+              { name: "Create project", value: "create" },
+              { name: "← Back", value: "back" },
+              { name: "Cancel", value: "cancel" },
             ],
-            default: "npm",
+            pageSize: 6,
           },
-        ])
-      ).pm
-    : undefined;
+        ]);
 
-  const generator = getGenerator(selectedLanguage, selectedFramework);
-  if (!generator) {
-    throw new Error("Generator not found (registry mismatch).");
+        if (action === "cancel") return;
+        if (action === "back") {
+          step = "name";
+          continue;
+        }
+      }
+
+      const needsCwd = steps.some((s) => s.cwdFromProjectRoot);
+      if (needsCwd) {
+        fs.mkdirSync(projectRoot, { recursive: true });
+      }
+
+      console.log(`\nCreating: ${state.name}`);
+      if (generator.notes) console.log(`Note: ${generator.notes}`);
+
+      try {
+        await runSteps(steps, { projectRoot });
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        console.error(`\nError: ${message}`);
+
+        if (args.yes) {
+          throw err;
+        }
+
+        const { next } = await prompt([
+          {
+            type: "list",
+            name: "next",
+            message: "What next?",
+            choices: [
+              { name: "Try again", value: "retry" },
+              { name: "← Back", value: "back" },
+              { name: "Cancel", value: "cancel" },
+            ],
+            pageSize: 6,
+          },
+        ]);
+
+        if (next === "cancel") return;
+        if (next === "back") {
+          step = "name";
+          continue;
+        }
+
+        // retry
+        step = "confirm";
+        continue;
+      }
+
+      console.log(`\nDone. Created project in: ${projectRoot}`);
+      return;
+    }
+
+    throw new Error(`Unknown wizard step: ${step}`);
   }
-
-  const projectName =
-    args.name && isSafeProjectName(args.name)
-      ? args.name
-      : (
-          await prompt([
-            {
-              type: "input",
-              name: "projectName",
-              message: "Project name (folder):",
-              validate: (input) =>
-                isSafeProjectName(input)
-                  ? true
-                  : "Use a simple folder name (no slashes).",
-            },
-          ])
-        ).projectName;
-
-  const projectRoot = path.resolve(process.cwd(), projectName);
-  if (fs.existsSync(projectRoot)) {
-    throw new Error(`Target folder already exists: ${projectRoot}`);
-  }
-
-  const { ok } = await prompt([
-    {
-      type: "confirm",
-      name: "ok",
-      message: `Create '${projectName}' using ${selectedLanguage} / ${selectedFramework}?`,
-      default: true,
-    },
-  ]);
-  if (!ok) return;
-
-  console.log(`\nCreating: ${projectName}`);
-  console.log(`Language: ${selectedLanguage}`);
-  console.log(`Framework: ${selectedFramework}`);
-  if (packageManager) console.log(`Package manager: ${packageManager}`);
-  if (generator.notes) console.log(`Note: ${generator.notes}`);
-
-  // Some generators create the folder themselves (e.g., npm create vite, cargo new).
-  // Others expect the folder to exist and run inside it.
-  // We'll create the folder upfront only if any step needs cwdFromProjectRoot.
-  const steps = generator.commands({
-    projectName,
-    packageManager,
-  });
-  const needsCwd = steps.some((s) => s.cwdFromProjectRoot);
-  if (needsCwd) {
-    fs.mkdirSync(projectRoot, { recursive: true });
-  }
-
-  await runSteps(steps, { projectRoot });
-
-  console.log(`\nDone. Created project in: ${projectRoot}`);
 }
 
 module.exports = {
