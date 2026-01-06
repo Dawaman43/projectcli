@@ -524,6 +524,7 @@ async function main(options = {}) {
 
         if (action === "cancel") return;
         if (action === "back") {
+          state.name = undefined;
           step = "name";
           continue;
         }
@@ -575,6 +576,7 @@ async function main(options = {}) {
           continue;
         }
         if (next === "back") {
+          state.name = undefined;
           step = "name";
           continue;
         }
