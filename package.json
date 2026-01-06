@@ -1,0 +1,47 @@
+{
+  "name": "@dawitworku/projectcli",
+  "version": "0.2.0",
+  "description": "The ultimate interactive project generator (language -> framework -> create).",
+  "author": "Dawit Worku",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dawitworku/projectcli"
+  },
+  "bugs": {
+    "url": "https://github.com/dawitworku/projectcli/issues"
+  },
+  "homepage": "https://github.com/dawitworku/projectcli#readme",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "projectcli": "bin/projectcli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cli",
+    "scaffold",
+    "generator",
+    "project"
+  ],
+  "scripts": {
+    "start": "node bin/projectcli.js",
+    "lint": "node -c bin/projectcli.js && node -c src/index.js && node -c src/registry.js && node -c src/run.js"
+  },
+  "dependencies": {
+    "boxen": "^5.1.2",
+    "chalk": "^4.1.2",
+    "figlet": "^1.9.4",
+    "fuse.js": "^7.1.0",
+    "gradient-string": "^3.0.0",
+    "inquirer": "^8.2.6",
+    "inquirer-autocomplete-prompt": "^2.0.0",
+    "ora": "^5.4.1"
+  }
+}

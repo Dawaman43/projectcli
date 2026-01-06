@@ -1,75 +1,110 @@
-# projectcli
+# ProjectCLI 🚀
 
-Interactive project generator.
+> **The Swiss Army Knife for Project Scaffolding.**  
+> Bootstrapping new projects shouldn't require memorizing 50 different CLI commands.
 
-Run it as a single command, pick language → framework, and it scaffolds the project by calling the underlying official CLIs (Vite, Next.js, Nest, etc.).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://badge.fury.io/js/@dawitworku%2Fprojectcli.svg)](https://badge.fury.io/js/@dawitworku%2Fprojectcli)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
-## Run with npx (recommended)
+**ProjectCLI** is an interactive, cross-language project generator. Instead of remembering usage for `create-react-app`, `cargo new`, `poetry new`, `laravel new`, `rails new`, etc., just run `projectcli`.
 
-After you publish this package to npm:
+We handle the complexity of calling the official CLIs for you.
+
+## ✨ Features
+
+- **Multi-Language Support**: Rust, Go, Python, JavaScript, TypeScript, PHP, Java, C#, Ruby, Swift, Dart.
+- **Unified Interface**: One interactive wizard to rule them all.
+- **Smart Context Awareness**: Running `projectcli` inside an existing project automatically offers to add libraries, CI/CD, or Dockerfiles tailored to that language.
+- **Preflight Checks**: Warns you if you are missing required tools (e.g. `cargo`, `go`, `node`) before you start.
+- **Remote Templates**: Clone any GitHub repository and automatically strip `.git` history for a fresh start.
+- **CI/CD & Docker**: One-click generation of GitHub Actions workflows and Dockerfiles.
+
+## 🚀 Quick Start
+
+Run instantly with `npx`:
 
 ```bash
 npx @dawitworku/projectcli@latest
 ```
 
-You can also run non-interactively:
+Or install globally:
 
 ```bash
-npx @dawitworku/projectcli@latest --language "TypeScript" --framework "NestJS" --name my-api --pm npm
-```
-
-## Run (dev)
-
-```bash
-npm install
-npm start
-```
-
-## Install as a single-word command
-
-From this repo folder:
-
-```bash
-npm install
-npm link
-```
-
-Then you can run:
-
-```bash
+npm install -g @dawitworku/projectcli
 projectcli
 ```
 
-## Add libraries to an existing project
+## 🎮 Interactive Mode
 
-Run inside a project folder:
+Just run `projectcli` and follow the prompts:
+
+1. Select **Language** (fuzzy search supported).
+2. Select **Framework** (React, Vue, Next.js, Actix, Axum, Django, FastAPI, etc.).
+3. Choose **Project Name**.
+4. (Optional) Add **CI/CD** or **Docker**.
+
+## 🛠 Advanced Usage
+
+### Context Awareness
+
+Run it inside a project to detect the language and offer relevant tools:
 
 ```bash
-projectcli add
+cd my-rust-project
+projectcli
+# Output: "✓ Detected active Rust project"
+# Options: [Add GitHub Actions CI], [Add Dockerfile], [Add Dependencies]
 ```
 
-## Notes
+### Remote Templates
 
-- If you type a project name that already exists, the CLI will ask for another name (it won’t quit).
-- Some generators (like Vite/Next/etc.) can still ask their own questions — those prompts come from the underlying tool.
-
-## Useful flags
+Clone a starter kit from GitHub and make it your own instantly:
 
 ```bash
-projectcli --help
-projectcli --version
-projectcli --list
-projectcli --language "JavaScript" --framework "Astro" --name myapp --pm pnpm
-projectcli --language "TypeScript" --framework "TanStack Start" --name myapp --pm npm
-projectcli --language "TypeScript" --framework "NestJS" --name myapi --pm pnpm
-projectcli --dry-run --language "JavaScript" --framework "Vite (React)" --name demo --pm pnpm
+projectcli --template https://github.com/example/starter-repo --name my-app
 ```
 
-## How it works
+### Automation / CI Use
 
-- Choose language
-- Choose framework
-- Enter project name
-- CLI runs the underlying generator commands (npm/cargo/django-admin/etc.)
+Skip the interactive prompts for scripts or specialized workflows:
 
-If a generator command is missing on your machine, install it and re-run.
+```bash
+projectcli --language Rust --framework Actix --name my-api --ci --docker --yes
+```
+
+### Configuration
+
+Save your preferences (like default package manager):
+
+```bash
+projectcli config
+```
+
+## 📦 Supported Generators (Partial List)
+
+| Language                  | Frameworks / Tools                                            |
+| ------------------------- | ------------------------------------------------------------- |
+| **JavaScript/TypeScript** | React (Vite), Vue, Next.js, NestJS, Express, Astro, Svelte... |
+| **Rust**                  | Binary, Library, Actix Web, Axum, Rocket, Taurus...           |
+| **Python**                | Poetry, Setuptools, Django, Flask, FastAPI...                 |
+| **Go**                    | Binary, Fiber, Gin, Chi, Echo...                              |
+| **PHP**                   | Laravel, Symfony, Slim...                                     |
+| **Java/Kotlin**           | Spring Boot, Gradle/Maven...                                  |
+| **...and more**           | C#, Ruby, Swift, Dart                                         |
+
+## 🤝 Contributing
+
+We love contributions! Whether it's adding a new framework to the registry or fixing a bug.
+
+1.  Fork it.
+2.  Create your feature branch (`git checkout -b feature/new-framework`).
+3.  Commit your changes (`git commit -am 'Add support for X'`).
+4.  Push to the branch (`git push origin feature/new-framework`).
+5.  Create a new Pull Request.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
+## 📝 License
+
+MIT © [Dawit Worku](https://github.com/dawitworku)
