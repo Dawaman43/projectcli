@@ -1,6 +1,6 @@
 {
   "name": "@dawitworku/projectcli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The ultimate interactive project generator (language -> framework -> create).",
   "author": "Dawit Worku",
   "repository": {
