@@ -33,6 +33,8 @@ const { gitClone, removeGitFolder } = require("./remote");
 const { generateCI, generateDocker } = require("./cicd");
 const { getDescription } = require("./descriptions");
 const { detectLanguage, detectPackageManager } = require("./detect");
+const { loadConfig } = require("./config");
+const { runConfig } = require("./settings");
 
 const RUST_KEYWORDS = new Set(
   [
@@ -206,6 +208,7 @@ function printHelp() {
   console.log(
     "  projectcli --language <lang> --framework <fw> --name <project>"
   );
+  console.log("  projectcli config        # configure defaults");
   console.log("");
   console.log("Flags:");
   console.log("  --help, -h       Show help");
@@ -321,6 +324,11 @@ async function main(options = {}) {
     return;
   }
 
+  if (cmd === "config") {
+    await runConfig({ prompt });
+    return;
+  }
+
   // Smart Context Detection
   if (
     cmd === "init" &&
@@ -419,11 +427,23 @@ async function main(options = {}) {
     throw new Error("No languages configured.");
   }
 
+  const userConfig = loadConfig();
+
   const allowedPms = ["npm", "pnpm", "yarn", "bun"];
-  const preselectedPm =
+  let preselectedPm =
     typeof args.pm === "string" && allowedPms.includes(args.pm)
       ? args.pm
       : undefined;
+
+  if (!preselectedPm && userConfig.packageManager) {
+    if (allowedPms.includes(userConfig.packageManager)) {
+      preselectedPm = userConfig.packageManager;
+    }
+  }
+
+  if (userConfig.learningMode && args.learning === false) {
+    args.learning = true;
+  }
 
   const state = {
     template: args.template || undefined,
