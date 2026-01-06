@@ -1,0 +1,32 @@
+{
+  "name": "projectcli",
+  "version": "0.1.0",
+  "description": "Interactive project generator (language -> framework -> create).",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "projectcli": "bin/projectcli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cli",
+    "scaffold",
+    "generator",
+    "project"
+  ],
+  "scripts": {
+    "start": "node bin/projectcli.js",
+    "lint": "node -c bin/projectcli.js && node -c src/index.js && node -c src/registry.js && node -c src/run.js"
+  },
+  "dependencies": {
+    "inquirer": "^9.2.23",
+    "inquirer-autocomplete-prompt": "^3.0.1"
+  }
+}
