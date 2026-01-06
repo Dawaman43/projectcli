@@ -28,14 +28,14 @@ try {
 const { getLanguages, getFrameworks, getGenerator } = require("./registry");
 const { runSteps } = require("./run");
 const { runAdd } = require("./add");
-const { checkBinaries } = require("./preflight");
+const { checkBinaries, getInstallHint } = require("./preflight");
 const { gitClone, removeGitFolder } = require("./remote");
 const { generateCI, generateDocker } = require("./cicd");
 const { generateDevContainer } = require("./devcontainer");
 const { generateLicense, licenseTypes } = require("./license");
 const { getDescription } = require("./descriptions");
 const { detectLanguage, detectPackageManager } = require("./detect");
-const { loadConfig } = require("./config");
+const { loadConfig, loadProjectConfig } = require("./config");
 const { runConfig } = require("./settings");
 
 const RUST_KEYWORDS = new Set(
@@ -216,6 +216,7 @@ function printHelp() {
     "  projectcli --language <lang> --framework <fw> --name <project>"
   );
   console.log("  projectcli config        # configure defaults");
+  console.log("  # config files: .projectclirc or projectcli.config.json");
   console.log("");
   console.log("Flags:");
   console.log("  --help, -h       Show help");
@@ -293,9 +294,23 @@ function printList() {
     for (const fw of getFrameworks(lang)) {
       const gen = getGenerator(lang, fw);
       const note = gen?.notes ? ` - ${gen.notes}` : "";
-      console.log(`  - ${fw}${note}`);
+      const stability = gen?.stability ? ` [${gen.stability}]` : "";
+      console.log(`  - ${fw}${stability}${note}`);
     }
   }
+}
+
+function formatStabilityBadge(stability) {
+  if (stability === "core") return chalk.green("✅ Core");
+  if (stability === "experimental") return chalk.yellow("⚠ Experimental");
+  if (stability === "community") return chalk.cyan("👥 Community");
+  return null;
+}
+
+function printMissingTool(bin) {
+  console.log(chalk.red(`✖ ${bin} not found`));
+  const hint = getInstallHint(bin);
+  if (hint) console.log(chalk.dim(`  → ${hint}`));
 }
 
 function showBanner() {
@@ -354,6 +369,12 @@ async function main(options = {}) {
     await runConfig({ prompt });
     return;
   }
+
+  // Config precedence: CLI args > project config > global config (~/.projectcli.json)
+  const userConfig = loadConfig();
+  const projectConfigInfo = loadProjectConfig(process.cwd());
+  const projectConfig = projectConfigInfo.data || {};
+  const effectiveConfig = { ...userConfig, ...projectConfig };
 
   // Smart Context Detection
   if (
@@ -452,7 +473,7 @@ async function main(options = {}) {
             type: "input",
             name: "author",
             message: "Author Name:",
-            default: userConfig.author || "The Authors",
+            default: effectiveConfig.author || "The Authors",
           },
         ]);
         const steps = generateLicense(process.cwd(), type, author);
@@ -500,34 +521,58 @@ async function main(options = {}) {
     throw new Error("No languages configured.");
   }
 
-  const userConfig = loadConfig();
-
   const allowedPms = ["npm", "pnpm", "yarn", "bun"];
   let preselectedPm =
     typeof args.pm === "string" && allowedPms.includes(args.pm)
       ? args.pm
       : undefined;
 
-  if (!preselectedPm && userConfig.packageManager) {
-    if (allowedPms.includes(userConfig.packageManager)) {
-      preselectedPm = userConfig.packageManager;
+  const configuredPm =
+    typeof effectiveConfig.packageManager === "string"
+      ? effectiveConfig.packageManager
+      : undefined;
+
+  if (!preselectedPm && configuredPm) {
+    if (allowedPms.includes(configuredPm)) {
+      preselectedPm = configuredPm;
     }
   }
 
-  if (userConfig.learningMode && args.learning === false) {
+  const learningEnabled =
+    typeof effectiveConfig.learningMode === "boolean"
+      ? effectiveConfig.learningMode
+      : typeof effectiveConfig.learning === "boolean"
+      ? effectiveConfig.learning
+      : false;
+
+  if (learningEnabled && args.learning === false) {
     args.learning = true;
   }
 
   const defaultLicenseType =
-    typeof userConfig.defaultLicense === "string" &&
-    licenseTypes.includes(userConfig.defaultLicense)
-      ? userConfig.defaultLicense
+    typeof effectiveConfig.license === "string" &&
+    licenseTypes.includes(effectiveConfig.license)
+      ? effectiveConfig.license
+      : typeof effectiveConfig.defaultLicense === "string" &&
+        licenseTypes.includes(effectiveConfig.defaultLicense)
+      ? effectiveConfig.defaultLicense
       : null;
 
   const defaultAuthor =
-    typeof userConfig.author === "string" && userConfig.author.trim()
-      ? userConfig.author.trim()
+    typeof effectiveConfig.author === "string" && effectiveConfig.author.trim()
+      ? effectiveConfig.author.trim()
       : "The Authors";
+
+  const defaultCi =
+    typeof effectiveConfig.ci === "boolean" ? effectiveConfig.ci : false;
+  const defaultDocker =
+    typeof effectiveConfig.docker === "boolean"
+      ? effectiveConfig.docker
+      : false;
+  const defaultDevContainer =
+    typeof effectiveConfig.devcontainer === "boolean"
+      ? effectiveConfig.devcontainer
+      : false;
 
   const state = {
     template: args.template || undefined,
@@ -611,7 +656,11 @@ async function main(options = {}) {
       const frameworkChoices = frameworks.map((fw) => {
         const gen = getGenerator(state.language, fw);
         const note = gen?.notes ? ` — ${gen.notes}` : "";
-        return { name: `${fw}${note}`, value: fw, short: fw };
+        const badge = gen?.stability
+          ? formatStabilityBadge(gen.stability)
+          : null;
+        const badgeText = badge ? ` ${badge}` : "";
+        return { name: `${fw}${badgeText}${note}`, value: fw, short: fw };
       });
 
       const frameworkQuestion = hasAutocomplete
@@ -659,7 +708,7 @@ async function main(options = {}) {
 
         if (missing.length > 0) {
           console.log(chalk.red.bold("\nMissing required tools:"));
-          missing.forEach((m) => console.log(chalk.red(` - ${m.bin}`)));
+          missing.forEach((m) => printMissingTool(m.bin));
           console.log(
             chalk.yellow("You may not be able to build or run this project.\n")
           );
@@ -830,9 +879,10 @@ async function main(options = {}) {
             langArg = "JavaScript";
           if (detectedTemplate === "Java/Kotlin") langArg = "Java";
 
-          let wantCi = Boolean(args.ci);
-          let wantDocker = Boolean(args.docker);
-          let wantDevContainer = Boolean(args.devcontainer);
+          let wantCi = Boolean(args.ci) || defaultCi;
+          let wantDocker = Boolean(args.docker) || defaultDocker;
+          let wantDevContainer =
+            Boolean(args.devcontainer) || defaultDevContainer;
           let wantLicense =
             typeof args.license === "boolean"
               ? args.license
@@ -928,7 +978,14 @@ async function main(options = {}) {
             )
           );
         } catch (err) {
-          console.error(chalk.red("\nFailed to clone template:"), err.message);
+          const message = err && err.message ? err.message : String(err);
+          console.error(chalk.red("\nFailed to clone template:"), message);
+          if (
+            /\bENOENT\b/i.test(message) ||
+            /command not found/i.test(message)
+          ) {
+            printMissingTool("git");
+          }
           process.exit(1);
         }
         return;
@@ -1020,6 +1077,11 @@ async function main(options = {}) {
         const message = err && err.message ? err.message : String(err);
         console.error(`\nError: ${message}`);
 
+        const cmdNotFound = /^Command not found:\s*(.+)$/.exec(message);
+        if (cmdNotFound && cmdNotFound[1]) {
+          printMissingTool(cmdNotFound[1].trim());
+        }
+
         const looksLikeNameIssue =
           /cannot be used as a package name|Rust keyword|keyword|Cargo\.toml/i.test(
             message
@@ -1105,9 +1167,10 @@ async function main(options = {}) {
 
       // CI/CD & Docker & DevContainer
       if (!args.dryRun) {
-        let wantCi = args.ci;
-        let wantDocker = args.docker;
-        let wantDevContainer = Boolean(args.devcontainer);
+        let wantCi = Boolean(args.ci) || defaultCi;
+        let wantDocker = Boolean(args.docker) || defaultDocker;
+        let wantDevContainer =
+          Boolean(args.devcontainer) || defaultDevContainer;
         let wantLicense =
           typeof args.license === "boolean"
             ? args.license

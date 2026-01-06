@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360" role="img" aria-label="ProjectCLI terminal demo">
+  <defs>
+    <style>
+      .bg { fill: #0b0f14; }
+      .bar { fill: #121826; }
+      .txt { fill: #e5e7eb; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 14px; }
+      .dim { fill: #9ca3af; }
+      .ok { fill: #34d399; }
+      .q { fill: #60a5fa; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="900" height="360" rx="12"/>
+  <rect class="bar" x="0" y="0" width="900" height="38" rx="12"/>
+  <circle cx="22" cy="19" r="6" fill="#ef4444"/>
+  <circle cx="44" cy="19" r="6" fill="#f59e0b"/>
+  <circle cx="66" cy="19" r="6" fill="#22c55e"/>
+  <text class="txt dim" x="92" y="24">projectcli demo</text>
+
+  <text class="txt" x="26" y="78"><tspan class="dim">$</tspan> npx @dawitworku/projectcli@latest</text>
+  <text class="txt" x="26" y="112"><tspan class="q">?</tspan> Select a Language  <tspan class="dim">(Type to search)</tspan></text>
+  <text class="txt" x="26" y="134"><tspan class="ok">›</tspan> Rust</text>
+
+  <text class="txt" x="26" y="170"><tspan class="q">?</tspan> Framework  <tspan class="dim">(type to search)</tspan></text>
+  <text class="txt" x="26" y="192"><tspan class="ok">›</tspan> Axum <tspan class="dim">✅ Core</tspan></text>
+
+  <text class="txt" x="26" y="228"><tspan class="q">?</tspan> Project folder name</text>
+  <text class="txt" x="26" y="250"><tspan class="dim">›</tspan> my-api</text>
+
+  <text class="txt" x="26" y="286"><tspan class="q">?</tspan> Extras</text>
+  <text class="txt" x="26" y="308"><tspan class="ok">✓</tspan> GitHub Actions CI  <tspan class="ok">✓</tspan> Dockerfile  <tspan class="ok">✓</tspan> Dev Container</text>
+
+  <text class="txt dim" x="26" y="340">(Replace this placeholder with an asciinema GIF/video when available.)</text>
+</svg>

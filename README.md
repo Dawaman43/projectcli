@@ -1,5 +1,14 @@
 # ProjectCLI 🚀
 
+<!-- TODO: Replace this with a real asciinema GIF/video -->
+
+**Demo (2 minutes):** _(recording coming next)_
+
+> Want to upgrade this to a real recording? Record with `asciinema rec` and convert to GIF.
+> Then replace the placeholder at `docs/demo.svg` (or switch the link back to a GIF).
+
+![ProjectCLI terminal demo](docs/demo.svg)
+
 > **The Swiss Army Knife for Project Scaffolding.**  
 > Bootstrapping new projects shouldn't require memorizing 50 different CLI commands.
 
@@ -11,6 +20,15 @@
 
 We handle the complexity of calling the official CLIs for you.
 
+## 🤔 Why ProjectCLI?
+
+| Tool             | Problem                     |
+| ---------------- | --------------------------- |
+| create-react-app | JS-only                     |
+| cargo new        | Rust-only                   |
+| yeoman           | heavy & old                 |
+| projectcli       | **unified + context-aware** |
+
 ## ✨ Features
 
 - **Multi-Language Support**: Rust, Go, Python, JavaScript, TypeScript, PHP, Java, C#, Ruby, Swift, Dart.
@@ -21,6 +39,12 @@ We handle the complexity of calling the official CLIs for you.
 - **CI/CD & Docker**: One-click generation of GitHub Actions workflows and Dockerfiles.
 - **Dev Containers**: Generate `.devcontainer/devcontainer.json` for VS Code / Codespaces.
 - **License Generator**: Add a standard `LICENSE` file (configurable default).
+
+## ✅ Safety Guarantees
+
+- ❌ Never writes outside the project folder it creates (guards against path traversal).
+- ❌ Never deletes files without an explicit, targeted operation (template clone only removes the cloned `.git`).
+- ✔ Supports `--dry-run` to preview planned actions without executing them.
 
 ## 🚀 Quick Start
 
@@ -81,6 +105,12 @@ Skip the interactive prompts for scripts or specialized workflows:
 projectcli --language Rust --framework Actix --name my-api --ci --docker --yes
 ```
 
+Preview what would happen (no execution):
+
+```bash
+projectcli --language Rust --framework Actix --name my-api --dry-run
+```
+
 Extras flags:
 
 - `--devcontainer` add a VS Code Dev Container
@@ -100,6 +130,32 @@ You can set defaults like:
 - JS/TS package manager
 - Author name (for LICENSE)
 - Default license type (MIT/Apache2/ISC)
+
+### Project Config File (teams / automation)
+
+ProjectCLI can also read a config file from the current directory:
+
+- `.projectclirc`
+- `projectcli.config.json`
+
+Example:
+
+```json
+{
+  "packageManager": "pnpm",
+  "author": "The Team",
+  "license": "MIT",
+  "ci": true,
+  "docker": false,
+  "devcontainer": true
+}
+```
+
+Precedence:
+
+1. CLI flags
+2. Project config file
+3. Global config (`projectcli config` → `~/.projectcli.json`)
 
 ## 📦 Supported Generators (Partial List)
 

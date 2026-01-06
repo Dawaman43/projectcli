@@ -898,7 +898,9 @@ function getFrameworks(language) {
 function getGenerator(language, framework) {
   const lang = REGISTRY[language];
   if (!lang) return null;
-  return lang[framework] || null;
+  const gen = lang[framework] || null;
+  if (!gen) return null;
+  return { ...gen, stability: gen.stability || "core" };
 }
 
 module.exports = {

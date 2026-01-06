@@ -19,7 +19,10 @@
   "files": [
     "bin",
     "src",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "ROADMAP.md",
+    "docs"
   ],
   "engines": {
     "node": ">=18"
