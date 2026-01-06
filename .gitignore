@@ -41,7 +41,8 @@ htmlcov/
 target/
 
 # Go / binaries
-bin/
+bin/*
+!bin/projectcli.js
 *.exe
 *.dll
 *.so
