@@ -3,12 +3,7 @@
 **Demo (2 minutes):**
 
 - Play locally: `asciinema play docs/demo.cast`
-- Convert to SVG/GIF (for README): `asciinema convert docs/demo.cast docs/demo.svg`
-
-> Want to upgrade this to a real recording? Record with `asciinema rec` and convert to GIF.
-> Then replace the placeholder at `docs/demo.svg` (or switch the link back to a GIF).
-
-![ProjectCLI terminal demo](docs/demo.svg)
+- Convert to plain text (for quick sharing): `asciinema convert --output-format txt docs/demo.cast -`
 
 Asciinema recording file: `docs/demo.cast`
 
