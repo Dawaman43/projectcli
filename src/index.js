@@ -25,6 +25,75 @@ const { getLanguages, getFrameworks, getGenerator } = require("./registry");
 const { runSteps } = require("./run");
 const { runAdd } = require("./add");
 
+const RUST_KEYWORDS = new Set(
+  [
+    // Strict + reserved keywords (covers the common Cargo failure cases)
+    "as",
+    "break",
+    "const",
+    "continue",
+    "crate",
+    "else",
+    "enum",
+    "extern",
+    "false",
+    "fn",
+    "for",
+    "if",
+    "impl",
+    "in",
+    "let",
+    "loop",
+    "match",
+    "mod",
+    "move",
+    "mut",
+    "pub",
+    "ref",
+    "return",
+    "self",
+    "Self",
+    "static",
+    "struct",
+    "super",
+    "trait",
+    "true",
+    "type",
+    "unsafe",
+    "use",
+    "where",
+    "while",
+    "async",
+    "await",
+    "dyn",
+    "union",
+    // Reserved (historical / future)
+    "abstract",
+    "become",
+    "box",
+    "do",
+    "final",
+    "macro",
+    "override",
+    "priv",
+    "try",
+    "typeof",
+    "unsized",
+    "virtual",
+    "yield",
+  ].map(String)
+);
+
+function validateProjectNameForSelection({ language, framework }, name) {
+  if (language === "Rust" && typeof framework === "string") {
+    const usesCargo = framework.toLowerCase().includes("cargo");
+    if (usesCargo && RUST_KEYWORDS.has(name)) {
+      return `That name is a Rust keyword (${name}). Pick a different name.`;
+    }
+  }
+  return true;
+}
+
 function isSafeProjectName(name) {
   // Avoid path traversal / empty names; keep permissive.
   if (!name) return false;
@@ -378,7 +447,10 @@ async function main(options = {}) {
             if (fs.existsSync(target)) {
               return "That folder already exists. Pick a different name.";
             }
-            return true;
+            return validateProjectNameForSelection(
+              { language: state.language, framework: state.framework },
+              v
+            );
           },
         },
       ]);
@@ -471,6 +543,11 @@ async function main(options = {}) {
         const message = err && err.message ? err.message : String(err);
         console.error(`\nError: ${message}`);
 
+        const looksLikeNameIssue =
+          /cannot be used as a package name|Rust keyword|keyword|Cargo\.toml/i.test(
+            message
+          );
+
         if (args.yes) {
           throw err;
         }
@@ -481,22 +558,30 @@ async function main(options = {}) {
             name: "next",
             message: "What next?",
             choices: [
-              { name: "Try again", value: "retry" },
+              { name: "Try again (same settings)", value: "retry" },
+              { name: "Change project name", value: "name" },
               { name: "← Back", value: "back" },
               { name: "Cancel", value: "cancel" },
             ],
             pageSize: 6,
+            default: looksLikeNameIssue ? "name" : "retry",
           },
         ]);
 
         if (next === "cancel") return;
+        if (next === "name") {
+          state.name = undefined;
+          step = "name";
+          continue;
+        }
         if (next === "back") {
           step = "name";
           continue;
         }
 
         // retry
-        step = "confirm";
+        step = looksLikeNameIssue ? "name" : "confirm";
+        if (step === "name") state.name = undefined;
         continue;
       }
 
