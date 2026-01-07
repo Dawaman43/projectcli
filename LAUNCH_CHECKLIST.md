@@ -39,7 +39,7 @@ I built **ProjectCLI** because I was tired of remembering the specific scaffoldi
 
 It's open source and I'd love your feedback!
 
-repo: https://github.com/dawitworku/projectcli
+repo: https://github.com/Dawaman43/projectcli
 install: `npx @dawitworku/projectcli@latest`
 
 ```

@@ -15,7 +15,7 @@ Asciinema recording file: `docs/demo.cast`
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://badge.fury.io/js/@dawitworku%2Fprojectcli.svg)](https://badge.fury.io/js/@dawitworku%2Fprojectcli)
 [![npm downloads](https://img.shields.io/npm/dm/@dawitworku/projectcli)](https://www.npmjs.com/package/@dawitworku/projectcli)
-[![CI](https://github.com/dawitworku/projectcli/actions/workflows/ci.yml/badge.svg)](https://github.com/dawitworku/projectcli/actions/workflows/ci.yml)
+[![CI](https://github.com/Dawaman43/projectcli/actions/workflows/ci.yml/badge.svg)](https://github.com/Dawaman43/projectcli/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
 **ProjectCLI** is an interactive, cross-language project generator. Instead of remembering usage for `create-react-app`, `cargo new`, `poetry new`, `laravel new`, `rails new`, etc., just run `projectcli`.

@@ -5,12 +5,12 @@
   "author": "Dawit Worku",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dawitworku/projectcli"
+    "url": "https://github.com/Dawaman43/projectcli"
   },
   "bugs": {
-    "url": "https://github.com/dawitworku/projectcli/issues"
+    "url": "https://github.com/Dawaman43/projectcli/issues"
   },
-  "homepage": "https://github.com/dawitworku/projectcli#readme",
+  "homepage": "https://github.com/Dawaman43/projectcli#readme",
   "license": "MIT",
   "type": "commonjs",
   "publishConfig": {

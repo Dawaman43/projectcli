@@ -58,11 +58,11 @@ npm test
 
 In short, when you submit code changes, your submissions are understood to be under the same [MIT License](LICENSE) that covers the project. Feel free to contact the maintainers if that's a concern.
 
-## Report bugs using Github's [issues](https://github.com/dawitworku/projectcli/issues)
+## Report bugs using Github's [issues](https://github.com/Dawaman43/projectcli/issues)
 
 We use GitHub issues to track public bugs. Report a bug by [opening a new issue](); it's that easy!
 
-Open a new issue: https://github.com/dawitworku/projectcli/issues/new/choose
+Open a new issue: https://github.com/Dawaman43/projectcli/issues/new/choose
 
 ## Write bug reports with detail, background, and sample code
 
