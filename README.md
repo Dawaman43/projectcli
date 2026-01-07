@@ -74,6 +74,16 @@ Just run `projectcli` and follow the prompts:
 
 ## 🛠 Advanced Usage
 
+### V3 Commands
+
+ProjectCLI v3 adds a few focused subcommands:
+
+- `projectcli doctor` check a repo and optionally apply safe fixes
+- `projectcli preset list` / `projectcli preset use <name>` manage presets
+- `projectcli upgrade` upgrade generated configs safely (supports `--preview`)
+- `projectcli add <feature>` add focused features like `ci`, `docker`, `devcontainer`, `license`, `lint`, `test`
+- `projectcli plugin list` / `projectcli plugin install <id>` enable plugins (and their contributions)
+
 ### Context Awareness
 
 Run it inside a project to detect the language and offer relevant tools:
@@ -175,7 +185,9 @@ Precedence:
 
 ProjectCLI is intentionally simple: most “features” are data-driven.
 
-- **Registry**: generators live in `src/registry.js` as `(Language -> Framework -> generator)` entries.
+- **Registry entrypoint**: `src/registry.js` (backwards-compatible import path for callers/tests).
+- **Built-in generators**: `src/registry_legacy.js`.
+- **V3 registry wrapper** (plugins/extensions): `src/registry/index.js`.
 - **Generators produce steps**: each generator returns a list of steps (commands / mkdir / writeFile).
 - **Executor**: steps are executed by `src/run.js` (it also prevents writing outside the project folder).
 - **Preflight**: generators can declare required tools with `check: ["cargo", "go", ...]` and the wizard warns early.
