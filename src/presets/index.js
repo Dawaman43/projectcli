@@ -76,18 +76,43 @@ const PRESETS = {
   },
 };
 
-function listPresets() {
-  return Object.keys(PRESETS);
+const { getPluginPresets } = require("../plugins/contributions");
+
+function getAllPresets(effectiveConfig) {
+  const out = { ...PRESETS };
+
+  const pluginPresets = getPluginPresets(effectiveConfig);
+  for (const p of pluginPresets) {
+    if (!p || typeof p.id !== "string") continue;
+    const id = p.id.trim().toLowerCase();
+    if (!id) continue;
+    // Plugin presets can extend the catalog; do not override built-ins.
+    if (out[id]) continue;
+
+    out[id] = {
+      id,
+      label: typeof p.label === "string" ? p.label : id,
+      defaults: p.defaults && typeof p.defaults === "object" ? p.defaults : {},
+      pluginId: p.pluginId,
+    };
+  }
+
+  return out;
 }
 
-function getPreset(presetId) {
-  if (typeof presetId !== "string") return PRESETS.startup;
+function listPresets(effectiveConfig) {
+  return Object.keys(getAllPresets(effectiveConfig));
+}
+
+function getPreset(presetId, effectiveConfig) {
+  const all = getAllPresets(effectiveConfig);
+  if (typeof presetId !== "string") return all.startup || PRESETS.startup;
   const key = presetId.trim().toLowerCase();
-  return PRESETS[key] || PRESETS.startup;
+  return all[key] || all.startup || PRESETS.startup;
 }
 
-function describePreset(presetId) {
-  const p = getPreset(presetId);
+function describePreset(presetId, effectiveConfig) {
+  const p = getPreset(presetId, effectiveConfig);
   return { id: p.id, label: p.label, defaults: p.defaults };
 }
 

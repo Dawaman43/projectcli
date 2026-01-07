@@ -25,11 +25,7 @@ try {
   hasAutocomplete = false;
 }
 
-const {
-  getLanguages,
-  getFrameworks,
-  getGenerator,
-} = require("./registry_legacy");
+const { getLanguages, getFrameworks, getGenerator } = require("./registry");
 const { runSteps } = require("./run");
 const { runAdd } = require("./add");
 const { checkBinaries, getInstallHint } = require("./preflight");
@@ -45,6 +41,7 @@ const { runDoctor } = require("./core/doctor");
 const { runPreset } = require("./preset");
 const { getPreset } = require("./presets");
 const { runUpgrade } = require("./upgrade");
+const { runPlugin } = require("./plugin");
 
 const RUST_KEYWORDS = new Set(
   [
@@ -236,6 +233,7 @@ function printHelp() {
   console.log("  projectcli doctor        # check a repo and optionally fix");
   console.log("  projectcli preset        # manage presets");
   console.log("  projectcli upgrade       # upgrade configs safely");
+  console.log("  projectcli plugin        # manage plugins");
   console.log("  projectcli --list        # list all frameworks");
   console.log(
     "  projectcli --language <lang> --framework <fw> --name <project>"
@@ -272,6 +270,13 @@ function printHelp() {
   console.log("Upgrade flags:");
   console.log("  --preview        Show what would change");
   console.log("  --only ci        Upgrade only CI templates");
+  console.log("  --only docker    Upgrade Docker templates");
+  console.log("  --only devcontainer Upgrade devcontainer templates");
+
+  console.log("");
+  console.log("Plugin commands:");
+  console.log("  projectcli plugin list");
+  console.log("  projectcli plugin install <id>");
 }
 
 const BACK = "__back__";
@@ -323,11 +328,11 @@ function filterExistingWriteFiles(steps, projectRoot) {
   return { kept, skipped };
 }
 
-function printList() {
-  for (const lang of getLanguages()) {
+function printList(effectiveConfig) {
+  for (const lang of getLanguages(effectiveConfig)) {
     console.log(`${lang}:`);
-    for (const fw of getFrameworks(lang)) {
-      const gen = getGenerator(lang, fw);
+    for (const fw of getFrameworks(lang, effectiveConfig)) {
+      const gen = getGenerator(lang, fw, effectiveConfig);
       const note = gen?.notes ? ` - ${gen.notes}` : "";
       const stability = gen?.stability ? ` [${gen.stability}]` : "";
       console.log(`  - ${fw}${stability}${note}`);
@@ -390,16 +395,17 @@ async function main(options = {}) {
     console.log(readPackageVersion());
     return;
   }
-  if (args.list) {
-    printList();
-    return;
-  }
 
   // Config precedence: CLI args > project config > global config (~/.projectcli.json)
   const userConfig = loadConfig();
   const projectConfigInfo = loadProjectConfig(process.cwd());
   const projectConfig = projectConfigInfo.data || {};
   const effectiveConfig = { ...userConfig, ...projectConfig };
+
+  if (args.list) {
+    printList(effectiveConfig);
+    return;
+  }
 
   if (cmd === "add") {
     await runAdd({ prompt, argv: rest, effectiveConfig });
@@ -417,12 +423,17 @@ async function main(options = {}) {
   }
 
   if (cmd === "preset") {
-    await runPreset({ prompt, argv: rest });
+    await runPreset({ prompt, argv: rest, effectiveConfig });
     return;
   }
 
   if (cmd === "upgrade") {
     await runUpgrade({ prompt, argv: rest });
+    return;
+  }
+
+  if (cmd === "plugin") {
+    await runPlugin({ prompt, argv: rest, effectiveConfig });
     return;
   }
 
@@ -566,7 +577,7 @@ async function main(options = {}) {
       chalk.dim(" (Type to search)")
   );
 
-  const languages = getLanguages();
+  const languages = getLanguages(effectiveConfig);
   if (languages.length === 0) {
     throw new Error("No languages configured.");
   }
@@ -592,7 +603,7 @@ async function main(options = {}) {
     typeof effectiveConfig.preset === "string" && effectiveConfig.preset.trim()
       ? effectiveConfig.preset.trim()
       : "startup";
-  const preset = getPreset(presetId);
+  const preset = getPreset(presetId, effectiveConfig);
   const presetPm =
     typeof preset?.defaults?.packageManager === "string"
       ? preset.defaults.packageManager
@@ -652,7 +663,10 @@ async function main(options = {}) {
   };
 
   if (state.language) {
-    const frameworksForLanguage = getFrameworks(state.language);
+    const frameworksForLanguage = getFrameworks(
+      state.language,
+      effectiveConfig
+    );
     state.framework =
       args.framework && frameworksForLanguage.includes(args.framework)
         ? args.framework
@@ -675,7 +689,7 @@ async function main(options = {}) {
   while (true) {
     if (step === "language") {
       const languageChoices = languages.map((lang) => {
-        const count = getFrameworks(lang).length;
+        const count = getFrameworks(lang, effectiveConfig).length;
         return { name: `${lang} (${count})`, value: lang, short: lang };
       });
 
@@ -714,13 +728,13 @@ async function main(options = {}) {
     }
 
     if (step === "framework") {
-      const frameworks = getFrameworks(state.language);
+      const frameworks = getFrameworks(state.language, effectiveConfig);
       if (frameworks.length === 0) {
         throw new Error(`No frameworks configured for ${state.language}.`);
       }
 
       const frameworkChoices = frameworks.map((fw) => {
-        const gen = getGenerator(state.language, fw);
+        const gen = getGenerator(state.language, fw, effectiveConfig);
         const note = gen?.notes ? ` — ${gen.notes}` : "";
         const badge = gen?.stability
           ? formatStabilityBadge(gen.stability)
@@ -765,7 +779,11 @@ async function main(options = {}) {
       state.framework = answer.framework;
 
       // Preflight Checks
-      const gen = getGenerator(state.language, state.framework);
+      const gen = getGenerator(
+        state.language,
+        state.framework,
+        effectiveConfig
+      );
       if (gen && gen.check && gen.check.length > 0) {
         /* eslint-disable-next-line no-console */
         console.log(chalk.dim("\n(checking requirements...)"));

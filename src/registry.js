@@ -1,3 +1,3 @@
 // Backwards-compatible entrypoint for existing imports/tests.
-// V3 work is in-progress; the current registry lives in `registry_legacy`.
-module.exports = require("./registry_legacy");
+// V3 registry wrapper includes legacy registry plus optional plugin additions.
+module.exports = require("./registry/index");

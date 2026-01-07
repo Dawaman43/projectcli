@@ -3,7 +3,8 @@ const path = require("node:path");
 const chalk = require("chalk");
 
 const { detectLanguage, detectPackageManager } = require("./detect");
-const { generateCI } = require("./cicd");
+const { generateCI, generateDocker } = require("./cicd");
+const { generateDevContainer } = require("./devcontainer");
 const { runSteps } = require("./run");
 
 function readFileSafe(filePath) {
@@ -96,6 +97,63 @@ function computeCIUpgradeSteps(projectRoot, language, pm) {
   return out;
 }
 
+function computeDockerUpgradeSteps(projectRoot, language) {
+  const langForTemplates =
+    language === "JavaScript/TypeScript" ? "JavaScript" : language;
+  const candidateSteps = generateDocker(projectRoot, langForTemplates);
+
+  const out = [];
+  for (const step of candidateSteps) {
+    if (!step || step.type !== "writeFile" || typeof step.path !== "string")
+      continue;
+
+    const target = path.join(projectRoot, step.path);
+    const existing = readFileSafe(target);
+    const desired = step.content;
+
+    if (existing !== null) {
+      if (normalizeNewlines(existing) === normalizeNewlines(desired)) {
+        continue;
+      }
+    }
+
+    out.push({ ...step, overwrite: true });
+  }
+
+  return out;
+}
+
+function computeDevContainerUpgradeSteps(projectRoot, language) {
+  const langForTemplates =
+    language === "JavaScript/TypeScript" ? "JavaScript" : language;
+  const candidateSteps = generateDevContainer(projectRoot, langForTemplates);
+
+  const out = [];
+  for (const step of candidateSteps) {
+    if (!step) continue;
+    if (step.type === "mkdir") {
+      // Safe to keep; mkdir -p is idempotent.
+      out.push(step);
+      continue;
+    }
+    if (step.type !== "writeFile" || typeof step.path !== "string") continue;
+
+    const target = path.join(projectRoot, step.path);
+    const existing = readFileSafe(target);
+    const desired = step.content;
+
+    if (existing !== null) {
+      if (normalizeNewlines(existing) === normalizeNewlines(desired)) {
+        continue;
+      }
+    }
+
+    out.push({ ...step, overwrite: true });
+  }
+
+  return out;
+}
+
 async function runUpgrade({ prompt, argv }) {
   const flags = parseUpgradeArgs(argv);
   const projectRoot = process.cwd();
@@ -104,14 +162,26 @@ async function runUpgrade({ prompt, argv }) {
 
   const only = flags.only;
   const wantCI = !only || only === "ci";
+  const wantDocker = !only || only === "docker";
+  const wantDevContainer = !only || only === "devcontainer";
 
-  if (!wantCI) {
-    throw new Error(`Unsupported --only value: ${only}. Supported: ci`);
+  if (only && !wantCI && !wantDocker && !wantDevContainer) {
+    throw new Error(
+      `Unsupported --only value: ${only}. Supported: ci, docker, devcontainer`
+    );
   }
 
   const steps = [];
   if (wantCI) {
     steps.push(...computeCIUpgradeSteps(projectRoot, language, pm));
+  }
+
+  if (wantDocker) {
+    steps.push(...computeDockerUpgradeSteps(projectRoot, language));
+  }
+
+  if (wantDevContainer) {
+    steps.push(...computeDevContainerUpgradeSteps(projectRoot, language));
   }
 
   console.log(chalk.bold("\nProjectCLI Upgrade"));

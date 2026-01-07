@@ -86,8 +86,57 @@ test("upgrade --preview --only ci exits 0", () => {
   assert.match(r.stdout + r.stderr, /Upgrade/i);
 });
 
+test("upgrade --preview --only docker exits 0", () => {
+  const r = run(["upgrade", "--preview", "--only", "docker"]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout + r.stderr, /Upgrade/i);
+});
+
+test("upgrade --preview --only devcontainer exits 0", () => {
+  const r = run(["upgrade", "--preview", "--only", "devcontainer"]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout + r.stderr, /Upgrade/i);
+});
+
 test("add ci --dry-run --yes exits 0", () => {
   const r = run(["add", "ci", "--dry-run", "--yes"]);
   assert.equal(r.code, 0, r.stderr);
   assert.match(r.stdout + r.stderr, /Dry run/i);
+});
+
+test("plugin list exits 0", () => {
+  const r = run(["plugin", "list"]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout + r.stderr, /Plugins:/);
+});
+
+test("enabled plugin contributes presets/doctor/registry", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "projectcli-plugin-"));
+  const pluginPath = path.join(
+    repoRoot,
+    "test",
+    "fixtures",
+    "sample-plugin.cjs"
+  );
+
+  fs.writeFileSync(
+    path.join(tmp, "projectcli.config.json"),
+    JSON.stringify({ plugins: [pluginPath] }, null, 2)
+  );
+
+  // preset list should include plugin preset
+  const pr = run(["preset", "list"], { cwd: tmp });
+  assert.equal(pr.code, 0, pr.stderr);
+  assert.match(pr.stdout + pr.stderr, /acme/i);
+
+  // doctor json should include plugin check id
+  const dr = run(["doctor", "--json"], { cwd: tmp });
+  assert.equal(dr.code, 1); // missing README initially
+  assert.match(dr.stdout + dr.stderr, /has-readme/);
+
+  // --list should include plugin language/framework
+  const lr = run(["--list"], { cwd: tmp });
+  assert.equal(lr.code, 0, lr.stderr);
+  assert.match(lr.stdout + lr.stderr, /DemoLang/);
+  assert.match(lr.stdout + lr.stderr, /DemoFramework/);
 });

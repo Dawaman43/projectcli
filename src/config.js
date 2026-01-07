@@ -46,6 +46,10 @@ function normalizeConfig(raw) {
   if (typeof raw.devcontainer === "boolean")
     out.devcontainer = raw.devcontainer;
 
+  if (Array.isArray(raw.plugins)) {
+    out.plugins = raw.plugins.filter((p) => typeof p === "string" && p.trim());
+  }
+
   return out;
 }
 

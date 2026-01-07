@@ -8,6 +8,7 @@ const { generateLicense, licenseTypes } = require("../../license");
 const { pmAddCommand } = require("../../pm");
 const { runSteps } = require("../../run");
 const { getPreset } = require("../../presets");
+const { getPluginDoctorChecks } = require("../../plugins/contributions");
 
 function exists(projectRoot, relPath) {
   return fs.existsSync(path.join(projectRoot, relPath));
@@ -145,7 +146,7 @@ async function runDoctor({ prompt, argv, effectiveConfig }) {
     typeof effectiveConfig?.preset === "string" && effectiveConfig.preset.trim()
       ? effectiveConfig.preset.trim()
       : "startup";
-  const preset = getPreset(presetId);
+  const preset = getPreset(presetId, effectiveConfig);
   const presetDefaults = preset?.defaults || {};
 
   const checks = [];
@@ -222,6 +223,52 @@ async function runDoctor({ prompt, argv, effectiveConfig }) {
     }
   }
 
+  // Plugin checks
+  const pluginChecks = getPluginDoctorChecks(effectiveConfig);
+  if (!flags.ciOnly && pluginChecks.length > 0) {
+    for (const pc of pluginChecks) {
+      const title =
+        typeof pc.title === "string" && pc.title.trim()
+          ? pc.title.trim()
+          : `${pc.pluginId}:${pc.id}`;
+
+      let ok = false;
+      let detectError = null;
+
+      try {
+        const res =
+          typeof pc.detect === "function"
+            ? await pc.detect({
+                projectRoot,
+                language,
+                packageManager: pm,
+                effectiveConfig,
+                preset,
+              })
+            : false;
+
+        if (typeof res === "boolean") ok = res;
+        else if (res && typeof res.ok === "boolean") ok = res.ok;
+        else ok = Boolean(res);
+      } catch (err) {
+        ok = false;
+        detectError = err && err.message ? err.message : String(err);
+      }
+
+      const fixable = typeof pc.fix === "function";
+
+      checks.push({
+        id: pc.id,
+        title,
+        ok,
+        fixable,
+        fixId: `plugin:${pc.pluginId}:${pc.id}`,
+        pluginId: pc.pluginId,
+        error: detectError || undefined,
+      });
+    }
+  }
+
   const ok = checks.every((c) => c.ok);
 
   if (flags.json) {
@@ -248,6 +295,9 @@ async function runDoctor({ prompt, argv, effectiveConfig }) {
 
   for (const check of checks) {
     console.log(formatCheckLine(check));
+    if (!check.ok && check.error) {
+      console.log(chalk.dim(`  → ${check.error}`));
+    }
   }
 
   const missingFixable = checks.filter((c) => !c.ok && c.fixable);
@@ -382,6 +432,34 @@ async function runDoctor({ prompt, argv, effectiveConfig }) {
   if (fixIds.includes("add-vitest")) {
     const cmd = pmAddCommand(pm, ["vitest"], { dev: true });
     steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+  }
+
+  // Plugin fixes
+  const pluginFixes = fixIds.filter((id) => String(id).startsWith("plugin:"));
+  if (pluginFixes.length > 0) {
+    const allPluginChecks = getPluginDoctorChecks(effectiveConfig);
+    for (const fixId of pluginFixes) {
+      const parts = String(fixId).split(":");
+      if (parts.length < 3) continue;
+      const pluginId = parts[1];
+      const checkId = parts.slice(2).join(":");
+      const pc = allPluginChecks.find(
+        (c) => c.pluginId === pluginId && c.id === checkId
+      );
+      if (!pc || typeof pc.fix !== "function") continue;
+
+      const produced = await pc.fix({
+        projectRoot,
+        language,
+        packageManager: pm,
+        effectiveConfig,
+        preset,
+      });
+
+      if (Array.isArray(produced)) {
+        steps.push(...produced);
+      }
+    }
   }
 
   const { kept, skipped } = filterExistingWriteFiles(steps, projectRoot);
