@@ -1,5 +1,6 @@
 const chalk = require("chalk");
 const { loadConfig, saveConfig, CONFIG_PATH } = require("./config");
+const { listPresets, getPreset } = require("./presets");
 
 async function runConfig({ prompt }) {
   const config = loadConfig();
@@ -8,6 +9,16 @@ async function runConfig({ prompt }) {
   console.log(chalk.dim(`File: ${CONFIG_PATH}\n`));
 
   const answers = await prompt([
+    {
+      type: "list",
+      name: "preset",
+      message: "Default Preset:",
+      choices: listPresets().map((id) => {
+        const p = getPreset(id);
+        return { name: `${p.id} (${p.label})`, value: p.id };
+      }),
+      default: config.preset || "startup",
+    },
     {
       type: "list",
       name: "packageManager",

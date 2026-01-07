@@ -37,6 +37,10 @@ function normalizeConfig(raw) {
     out.learningMode = raw.learningMode;
   if (typeof raw.learning === "boolean") out.learning = raw.learning;
 
+  if (typeof raw.preset === "string" || raw.preset === null) {
+    out.preset = raw.preset;
+  }
+
   if (typeof raw.ci === "boolean") out.ci = raw.ci;
   if (typeof raw.docker === "boolean") out.docker = raw.docker;
   if (typeof raw.devcontainer === "boolean")

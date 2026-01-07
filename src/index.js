@@ -25,7 +25,11 @@ try {
   hasAutocomplete = false;
 }
 
-const { getLanguages, getFrameworks, getGenerator } = require("./registry");
+const {
+  getLanguages,
+  getFrameworks,
+  getGenerator,
+} = require("./registry_legacy");
 const { runSteps } = require("./run");
 const { runAdd } = require("./add");
 const { checkBinaries, getInstallHint } = require("./preflight");
@@ -37,6 +41,9 @@ const { getDescription } = require("./descriptions");
 const { detectLanguage, detectPackageManager } = require("./detect");
 const { loadConfig, loadProjectConfig } = require("./config");
 const { runConfig } = require("./settings");
+const { runDoctor } = require("./core/doctor");
+const { runPreset } = require("./preset");
+const { getPreset } = require("./presets");
 
 const RUST_KEYWORDS = new Set(
   [
@@ -197,7 +204,15 @@ function splitCommand(argv) {
   if (!argv || argv.length === 0) return { cmd: "init", rest: [] };
   const first = argv[0];
   if (typeof first === "string" && !first.startsWith("-")) {
-    if (first === "init" || first === "add") {
+    if (
+      first === "init" ||
+      first === "add" ||
+      first === "config" ||
+      first === "doctor" ||
+      first === "upgrade" ||
+      first === "preset" ||
+      first === "plugin"
+    ) {
       return { cmd: first, rest: argv.slice(1) };
     }
   }
@@ -211,6 +226,8 @@ function printHelp() {
   console.log("  projectcli               # init a new project");
   console.log("  projectcli init          # init a new project");
   console.log("  projectcli add           # add libraries to current project");
+  console.log("  projectcli doctor        # check a repo and optionally fix");
+  console.log("  projectcli preset        # manage presets");
   console.log("  projectcli --list        # list all frameworks");
   console.log(
     "  projectcli --language <lang> --framework <fw> --name <project>"
@@ -237,6 +254,11 @@ function printHelp() {
   console.log("  --no-license     Never add LICENSE");
   console.log("  --learning       Enable learning mode (shows descriptions)");
   console.log("  --template       Clone from a Git repository URL");
+  console.log("");
+  console.log("Doctor flags:");
+  console.log("  --fix            Apply safe fixes");
+  console.log("  --json           JSON output (CI-friendly)");
+  console.log("  --ci-only        Only check CI");
 }
 
 const BACK = "__back__";
@@ -375,6 +397,16 @@ async function main(options = {}) {
   const projectConfigInfo = loadProjectConfig(process.cwd());
   const projectConfig = projectConfigInfo.data || {};
   const effectiveConfig = { ...userConfig, ...projectConfig };
+
+  if (cmd === "doctor") {
+    await runDoctor({ prompt, argv: rest, effectiveConfig });
+    return;
+  }
+
+  if (cmd === "preset") {
+    await runPreset({ prompt, argv: rest });
+    return;
+  }
 
   // Smart Context Detection
   if (
@@ -538,6 +570,20 @@ async function main(options = {}) {
     }
   }
 
+  const presetId =
+    typeof effectiveConfig.preset === "string" && effectiveConfig.preset.trim()
+      ? effectiveConfig.preset.trim()
+      : "startup";
+  const preset = getPreset(presetId);
+  const presetPm =
+    typeof preset?.defaults?.packageManager === "string"
+      ? preset.defaults.packageManager
+      : null;
+
+  if (!preselectedPm && presetPm && allowedPms.includes(presetPm)) {
+    preselectedPm = presetPm;
+  }
+
   const learningEnabled =
     typeof effectiveConfig.learningMode === "boolean"
       ? effectiveConfig.learningMode
@@ -564,15 +610,17 @@ async function main(options = {}) {
       : "The Authors";
 
   const defaultCi =
-    typeof effectiveConfig.ci === "boolean" ? effectiveConfig.ci : false;
+    typeof effectiveConfig.ci === "boolean"
+      ? effectiveConfig.ci
+      : preset?.defaults?.extras?.ci === true;
   const defaultDocker =
     typeof effectiveConfig.docker === "boolean"
       ? effectiveConfig.docker
-      : false;
+      : preset?.defaults?.extras?.docker === true;
   const defaultDevContainer =
     typeof effectiveConfig.devcontainer === "boolean"
       ? effectiveConfig.devcontainer
-      : false;
+      : preset?.defaults?.extras?.devcontainer === true;
 
   const state = {
     template: args.template || undefined,
