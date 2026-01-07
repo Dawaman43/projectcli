@@ -79,3 +79,15 @@ test("template dry-run exits 0 (does not clone)", () => {
     "dry-run should not create target folder"
   );
 });
+
+test("upgrade --preview --only ci exits 0", () => {
+  const r = run(["upgrade", "--preview", "--only", "ci"]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout + r.stderr, /Upgrade/i);
+});
+
+test("add ci --dry-run --yes exits 0", () => {
+  const r = run(["add", "ci", "--dry-run", "--yes"]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout + r.stderr, /Dry run/i);
+});

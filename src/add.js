@@ -9,6 +9,9 @@ const { detectLanguage, detectPackageManager } = require("./detect");
 const { getCatalog } = require("./libraries");
 const { pmAddCommand, pmExecCommand } = require("./pm");
 const { runSteps } = require("./run");
+const { generateCI, generateDocker } = require("./cicd");
+const { generateDevContainer } = require("./devcontainer");
+const { generateLicense, licenseTypes } = require("./license");
 
 function uniq(arr) {
   return Array.from(new Set(arr));
@@ -22,6 +25,53 @@ function parseAddArgs(argv) {
     else if (a === "--dry-run") out.dryRun = true;
   }
   return out;
+}
+
+function filterExistingWriteFiles(steps, projectRoot) {
+  const kept = [];
+  const skipped = [];
+  for (const step of steps || []) {
+    if (step && step.type === "writeFile" && typeof step.path === "string") {
+      const target = path.resolve(projectRoot, step.path);
+      if (fs.existsSync(target)) {
+        skipped.push(step.path);
+        continue;
+      }
+    }
+    kept.push(step);
+  }
+  return { kept, skipped };
+}
+
+function getFirstPositional(argv) {
+  const args = Array.isArray(argv) ? argv : [];
+  for (const a of args) {
+    if (typeof a !== "string") continue;
+    if (a.startsWith("-")) continue;
+    return a;
+  }
+  return null;
+}
+
+function normalizeTemplateLanguage(language) {
+  if (language === "JavaScript/TypeScript") return "JavaScript";
+  if (language === "Java/Kotlin") return "Java";
+  return language;
+}
+
+function buildEslintFlatConfigCjs() {
+  return (
+    "module.exports = [\n" +
+    "  {\n" +
+    '    files: ["**/*.js", "**/*.cjs", "**/*.mjs"],\n' +
+    "    languageOptions: { ecmaVersion: 2022 },\n" +
+    "    rules: {\n" +
+    '      "no-unused-vars": "warn",\n' +
+    '      "no-undef": "error",\n' +
+    "    },\n" +
+    "  },\n" +
+    "];\n"
+  );
 }
 
 function printStepsPreview(steps) {
@@ -46,11 +96,21 @@ function printStepsPreview(steps) {
   console.log("");
 }
 
-async function runAdd({ prompt, argv }) {
+async function runAdd({ prompt, argv, effectiveConfig }) {
   const flags = parseAddArgs(argv);
   const cwd = process.cwd();
   const language = detectLanguage(cwd);
   const pm = detectPackageManager(cwd); // Now returns pip, poetry, cargo, go, etc.
+
+  const feature = String(getFirstPositional(argv) || "").toLowerCase();
+  const supportedFeatures = new Set([
+    "ci",
+    "docker",
+    "devcontainer",
+    "license",
+    "lint",
+    "test",
+  ]);
 
   if (language === "Unknown") {
     throw new Error(
@@ -60,6 +120,109 @@ async function runAdd({ prompt, argv }) {
 
   console.log(chalk.bold(`\nDetected project: ${chalk.blue(language)}`));
   console.log(chalk.dim(`Detected package manager: ${pm}`));
+
+  if (feature && supportedFeatures.has(feature)) {
+    const langForTemplates = normalizeTemplateLanguage(language);
+    const cfg =
+      effectiveConfig && typeof effectiveConfig === "object"
+        ? effectiveConfig
+        : {};
+
+    const steps = [];
+
+    if (feature === "ci") {
+      steps.push(...generateCI(cwd, langForTemplates, pm));
+    } else if (feature === "docker") {
+      steps.push(...generateDocker(cwd, langForTemplates));
+    } else if (feature === "devcontainer") {
+      steps.push(...generateDevContainer(cwd, langForTemplates));
+    } else if (feature === "license") {
+      const type =
+        typeof cfg.license === "string" && licenseTypes.includes(cfg.license)
+          ? cfg.license
+          : typeof cfg.defaultLicense === "string" &&
+            licenseTypes.includes(cfg.defaultLicense)
+          ? cfg.defaultLicense
+          : "MIT";
+      const author =
+        typeof cfg.author === "string" && cfg.author.trim()
+          ? cfg.author.trim()
+          : "The Authors";
+
+      steps.push(...generateLicense(cwd, type, author));
+    } else if (feature === "lint") {
+      if (language === "JavaScript/TypeScript") {
+        const cmd = pmAddCommand(pm, ["eslint"], { dev: true });
+        steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+        steps.push({
+          type: "writeFile",
+          path: "eslint.config.cjs",
+          content: buildEslintFlatConfigCjs(),
+        });
+      } else if (language === "Python") {
+        const cmd = pmAddCommand(pm, ["ruff"], { dev: false });
+        steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+      } else {
+        console.log(
+          chalk.yellow(
+            `\nNo automated lint setup for ${language} yet. Try: projectcli add ci, docker, devcontainer, or license.`
+          )
+        );
+        return;
+      }
+    } else if (feature === "test") {
+      if (language === "JavaScript/TypeScript") {
+        const cmd = pmAddCommand(pm, ["vitest"], { dev: true });
+        steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+      } else if (language === "Python") {
+        const cmd = pmAddCommand(pm, ["pytest"], { dev: false });
+        steps.push({ type: "command", ...cmd, cwdFromProjectRoot: true });
+      } else {
+        console.log(
+          chalk.yellow(
+            `\nNo automated test setup for ${language} yet. Try: projectcli add ci, docker, devcontainer, or license.`
+          )
+        );
+        return;
+      }
+    }
+
+    const { kept, skipped } = filterExistingWriteFiles(steps, cwd);
+
+    if (flags.dryRun) {
+      printStepsPreview(kept);
+      if (skipped.length > 0) {
+        console.log(chalk.dim(`Skipped existing files: ${skipped.join(", ")}`));
+      }
+      console.log("Dry run: nothing executed.");
+      return;
+    }
+
+    if (!flags.yes) {
+      printStepsPreview(kept);
+      const { ok } = await prompt([
+        {
+          type: "confirm",
+          name: "ok",
+          message: `Proceed to add ${feature}?`,
+          default: true,
+        },
+      ]);
+      if (!ok) return;
+    }
+
+    if (kept.length === 0) {
+      console.log(chalk.dim("Nothing to do (already present)."));
+      return;
+    }
+
+    await runSteps(kept, { projectRoot: cwd });
+    if (skipped.length > 0) {
+      console.log(chalk.dim(`Skipped existing files: ${skipped.join(", ")}`));
+    }
+    console.log(chalk.green(`\nDone. Added ${feature}.`));
+    return;
+  }
 
   const catalog = getCatalog(language);
   const categories = Object.keys(catalog);

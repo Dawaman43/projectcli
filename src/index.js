@@ -44,6 +44,7 @@ const { runConfig } = require("./settings");
 const { runDoctor } = require("./core/doctor");
 const { runPreset } = require("./preset");
 const { getPreset } = require("./presets");
+const { runUpgrade } = require("./upgrade");
 
 const RUST_KEYWORDS = new Set(
   [
@@ -226,8 +227,15 @@ function printHelp() {
   console.log("  projectcli               # init a new project");
   console.log("  projectcli init          # init a new project");
   console.log("  projectcli add           # add libraries to current project");
+  console.log("  projectcli add ci        # add GitHub Actions CI");
+  console.log("  projectcli add docker    # add Dockerfile");
+  console.log("  projectcli add devcontainer # add VS Code devcontainer");
+  console.log("  projectcli add license   # add LICENSE");
+  console.log("  projectcli add lint      # add linter defaults");
+  console.log("  projectcli add test      # add test runner defaults");
   console.log("  projectcli doctor        # check a repo and optionally fix");
   console.log("  projectcli preset        # manage presets");
+  console.log("  projectcli upgrade       # upgrade configs safely");
   console.log("  projectcli --list        # list all frameworks");
   console.log(
     "  projectcli --language <lang> --framework <fw> --name <project>"
@@ -259,6 +267,11 @@ function printHelp() {
   console.log("  --fix            Apply safe fixes");
   console.log("  --json           JSON output (CI-friendly)");
   console.log("  --ci-only        Only check CI");
+
+  console.log("");
+  console.log("Upgrade flags:");
+  console.log("  --preview        Show what would change");
+  console.log("  --only ci        Upgrade only CI templates");
 }
 
 const BACK = "__back__";
@@ -382,8 +395,14 @@ async function main(options = {}) {
     return;
   }
 
+  // Config precedence: CLI args > project config > global config (~/.projectcli.json)
+  const userConfig = loadConfig();
+  const projectConfigInfo = loadProjectConfig(process.cwd());
+  const projectConfig = projectConfigInfo.data || {};
+  const effectiveConfig = { ...userConfig, ...projectConfig };
+
   if (cmd === "add") {
-    await runAdd({ prompt, argv: rest });
+    await runAdd({ prompt, argv: rest, effectiveConfig });
     return;
   }
 
@@ -392,12 +411,6 @@ async function main(options = {}) {
     return;
   }
 
-  // Config precedence: CLI args > project config > global config (~/.projectcli.json)
-  const userConfig = loadConfig();
-  const projectConfigInfo = loadProjectConfig(process.cwd());
-  const projectConfig = projectConfigInfo.data || {};
-  const effectiveConfig = { ...userConfig, ...projectConfig };
-
   if (cmd === "doctor") {
     await runDoctor({ prompt, argv: rest, effectiveConfig });
     return;
@@ -405,6 +418,11 @@ async function main(options = {}) {
 
   if (cmd === "preset") {
     await runPreset({ prompt, argv: rest });
+    return;
+  }
+
+  if (cmd === "upgrade") {
+    await runUpgrade({ prompt, argv: rest });
     return;
   }
 
